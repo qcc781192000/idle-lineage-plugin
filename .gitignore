@@ -1,7 +1,6 @@
 # 僅發布外掛腳本、說明與授權
 *
 !.gitignore
-!afk-main.js
-!afk-main.user.js
+!main.user.js
 !README.md
 !LICENSE

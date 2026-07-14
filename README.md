@@ -2,9 +2,9 @@
 
 為「放置天堂」網頁版遊戲設計的 Tampermonkey 單一腳本外掛。功能集中於同一份使用者腳本，提供加速、背包管理、物品資訊、協力隊伍、城堡快捷、角色調整、自動保命及多項介面優化。
 
-目前穩定版本：`v3.29.3`
+目前穩定版本：`v3.29.4`
 
-[一鍵安裝外掛](https://raw.githubusercontent.com/qcc781192000/idle-lineage-plugin/main/afk-main.user.js)｜[版本發行頁](https://github.com/qcc781192000/idle-lineage-plugin/releases)｜[問題回報](https://github.com/qcc781192000/idle-lineage-plugin/issues)
+[一鍵安裝外掛](https://raw.githubusercontent.com/qcc781192000/idle-lineage-plugin/main/main.user.js)｜[版本發行頁](https://github.com/qcc781192000/idle-lineage-plugin/releases)｜[問題回報](https://github.com/qcc781192000/idle-lineage-plugin/issues)
 
 ## 安裝需求
 
@@ -15,7 +15,7 @@
 ## 安裝方式
 
 1. 在瀏覽器安裝並啟用 Tampermonkey。
-2. 使用同一個瀏覽器開啟[一鍵安裝連結](https://raw.githubusercontent.com/qcc781192000/idle-lineage-plugin/main/afk-main.user.js)。
+2. 使用同一個瀏覽器開啟[一鍵安裝連結](https://raw.githubusercontent.com/qcc781192000/idle-lineage-plugin/main/main.user.js)。
 3. 確認 Tampermonkey 顯示腳本安裝頁。
 4. 按下「安裝」，再重新整理遊戲頁面。
 
@@ -129,7 +129,6 @@
 ## 設定與資料
 
 - 外掛設定儲存在瀏覽器 `localStorage`。
-- 外掛設定鍵值統一使用 `afk_` 前綴。
 - 外掛不需要獨立伺服器或資料庫。
 - 清除網站資料會一併清除外掛設定。
 
@@ -145,7 +144,7 @@
 ### 點擊安裝連結沒有出現 Tampermonkey
 
 - 確認使用已安裝 Tampermonkey 的瀏覽器開啟連結。
-- 確認安裝網址最後為 `afk-main.user.js`。
+- 確認安裝網址最後為 `main.user.js`。
 - 確認 Tampermonkey 擴充功能已啟用。
 - 仍無法安裝時，可在 Tampermonkey 管理面板選擇「從網址匯入」，再貼上一鍵安裝網址。
 
@@ -156,26 +155,21 @@
 - 重新整理遊戲頁面。
 - 確認沒有同時啟用舊版拆分腳本。
 
-### 舊版腳本衝突
-
-若曾安裝 `afk-speed.js`、`afk-itemsearch-plus.js` 或 `afk-revive.js`，請停用或移除舊腳本，只保留「放置天堂 ⚡ 一鍵外掛」。
-
 ## 專案檔案
 
 | 檔案 | 用途 |
 |---|---|
-| `afk-main.js` | 唯一功能原始檔，所有功能修改均在此完成 |
-| `afk-main.user.js` | Tampermonkey 安裝及自動更新入口，內容必須與 `afk-main.js` 完全相同 |
+| `main.user.js` | 唯一正式腳本，也是 Tampermonkey 安裝、自動更新及功能開發來源 |
 | `README.md` | 安裝、使用、維護及版本說明 |
-| `LICENSE` | MIT 授權條款 |
+| `LICENSE` | MIT 英文原文與繁體中文對照授權條款 |
 | `.gitignore` | 限制公開儲存庫只追蹤發布必要檔案 |
 
 `Source/`、本機測試資料、代理設定及工作檔案不會上傳公開儲存庫。
 
 ## 開發與發布規範
 
-1. 所有功能只修改根目錄 `afk-main.js`，不得修改 `Source/`。
-2. 完成功能後同步產生內容相同的 `afk-main.user.js`。
+1. 所有功能只修改根目錄 `main.user.js`，不得修改 `Source/`。
+2. 不得建立第二份正式腳本或功能副本。
 3. 每次新增功能或修正使用者可見問題，都必須提升 `@version`。
 4. 發布前至少執行 JavaScript 語法檢查及對應功能驗證。
 5. 只有通過驗證的版本可以推送到 `main`。
@@ -185,9 +179,9 @@
 
 ## 發布檢查清單
 
-- [ ] `afk-main.js` 的 `@version` 已提升。
-- [ ] `afk-main.user.js` 與主檔雜湊一致。
-- [ ] `node --check afk-main.js` 通過。
+- [ ] `main.user.js` 的 `@version` 已提升。
+- [ ] `node --check main.user.js` 通過。
+- [ ] `main.user.js` 的 SHA-256 已記錄。
 - [ ] 相關桌面及窄畫面功能已驗證。
 - [ ] README 版本紀錄已更新。
 - [ ] Git 提交與版本標籤已建立。
@@ -201,6 +195,7 @@
 
 | 版本 | 日期 | 更新摘要 |
 |---|---|---|
+| `v3.29.4` | 2026-07-15 | 正式腳本統一為 `main.user.js`；移除兩個舊腳本檔名；授權條款改為英中對照 |
 | `v3.29.3` | 2026-07-15 | 取消出戰寵物面板懸浮定位；完整重寫 README 並建立版本發布規範 |
 | `v3.29.2` | 2026-07-15 | 精簡重複倒地提示；其餘寵物改為原地展開 |
 | `v3.29.1` | 2026-07-15 | 新增 `.user.js` 一鍵安裝與自動更新入口 |
