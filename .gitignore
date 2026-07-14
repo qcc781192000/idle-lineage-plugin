@@ -2,5 +2,6 @@
 *
 !.gitignore
 !afk-main.js
+!afk-main.user.js
 !README.md
 !LICENSE

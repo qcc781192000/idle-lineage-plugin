@@ -5,6 +5,7 @@
 | 檔案 | 說明 |
 |------|------|
 | `tampermonkey/afk-main.js` | ⚡ **單一外掛腳本** — 所有功能整合於此檔案，後續擴充皆在此 |
+| `tampermonkey/afk-main.user.js` | Tampermonkey 安裝入口，內容與 `afk-main.js` 完全相同，不是另一份外掛 |
 | `tampermonkey/README.md` | 本說明文件 |
 | `tampermonkey/test.txt` | 參考用（不更動） |
 
@@ -23,13 +24,14 @@
 ## 🚀 安裝方式
 
 1. 瀏覽器安裝 [Tampermonkey 擴充功能](https://www.tampermonkey.net/)
-2. 點擊 **[安裝放置天堂一鍵外掛](https://raw.githubusercontent.com/qcc781192000/idle-lineage-afk-plugin/main/afk-main.js)**
+2. 點擊 **[安裝放置天堂一鍵外掛](https://raw.githubusercontent.com/qcc781192000/idle-lineage-afk-plugin/main/afk-main.user.js)**
 3. Tampermonkey 顯示安裝頁後按下「安裝」
 4. 進入放置天堂遊戲即可使用
 
 ### 自動更新
 
-- 腳本會透過 GitHub 主分支的 `@updateURL` 與 `@downloadURL` 自動檢查穩定版本。
+- 腳本會透過 GitHub 主分支的 `afk-main.user.js`、`@updateURL` 與 `@downloadURL` 自動檢查穩定版本。
+- `afk-main.user.js` 採用 Tampermonkey 可直接辨識的副檔名，安裝後仍只會顯示原本的「放置天堂 ⚡ 一鍵外掛」。
 - 只有完成驗證並提升版本號的內容才會發布到主分支。
 - 如要立即檢查，開啟 Tampermonkey 管理面板，在本腳本選單執行「檢查更新」。
 - 腳本名稱與命名空間維持不變，從舊版升級不會建立第二份腳本。
@@ -79,6 +81,7 @@
 
 | 版本 | 日期 | 說明 |
 |------|------|------|
+| v3.29.1 | 2026-07-15 | 修正 GitHub 一鍵安裝入口未被 Tampermonkey 辨識；新增 `.user.js` 安裝與自動更新網址。 |
 | v3.29.0 | 2026-07-15 | 統一背包、裝備、遺物與寵物裝備的精簡懸停資訊；修正完整物品視窗裁切並加入 GitHub 一鍵安裝與自動更新。 |
 | v3.28.0 | 2026-07-15 | 城堡快捷改用正式攻城切換並保留遠端護衛／追蹤；武器、防具、道具改為自適應分頁，寵物出戰置頂且其餘收合。 |
 | v3.27.0 | 2026-07-15 | 城堡整合目前城鎮服務、寵物面板加入完整保管與裝備操作；統一 UI 生命週期、浮動層及福利來源適配器。 |
