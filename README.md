@@ -2,9 +2,7 @@
 
 為「放置天堂」網頁版遊戲設計的 Tampermonkey 單一腳本外掛。功能集中於同一份使用者腳本，提供加速、背包管理、物品資訊、協力隊伍、城堡快捷、角色調整、自動保命及多項介面優化。
 
-目前穩定版本：`v3.29.4`
-
-[一鍵安裝外掛](https://raw.githubusercontent.com/qcc781192000/idle-lineage-plugin/main/main.user.js)｜[版本發行頁](https://github.com/qcc781192000/idle-lineage-plugin/releases)｜[問題回報](https://github.com/qcc781192000/idle-lineage-plugin/issues)
+[一鍵安裝外掛](https://raw.githubusercontent.com/qcc781192000/idle-lineage-plugin/main/main.user.js)｜[問題回報](https://github.com/qcc781192000/idle-lineage-plugin/issues)
 
 ## 安裝需求
 
@@ -20,18 +18,6 @@
 4. 按下「安裝」，再重新整理遊戲頁面。
 
 若瀏覽器只顯示程式碼，請確認連結最後是 `.user.js`，而且目前瀏覽器已啟用 Tampermonkey。
-
-## 自動更新
-
-腳本標頭已設定 GitHub 主分支的 `@updateURL` 與 `@downloadURL`。Tampermonkey 會依自己的更新週期檢查版本，只有 `@version` 較新的版本才會套用。
-
-手動檢查更新：
-
-1. 開啟 Tampermonkey 管理面板。
-2. 找到「放置天堂 ⚡ 一鍵外掛」。
-3. 執行「檢查更新」。
-
-腳本名稱及 `@namespace` 維持不變，因此正常更新不會建立第二份外掛。
 
 ## 主要功能
 
@@ -148,68 +134,12 @@
 - 確認 Tampermonkey 擴充功能已啟用。
 - 仍無法安裝時，可在 Tampermonkey 管理面板選擇「從網址匯入」，再貼上一鍵安裝網址。
 
-### 更新後功能沒有變化
-
-- 在 Tampermonkey 管理面板確認版本號。
-- 手動執行「檢查更新」。
-- 重新整理遊戲頁面。
-- 確認沒有同時啟用舊版拆分腳本。
-
-## 專案檔案
-
-| 檔案 | 用途 |
-|---|---|
-| `main.user.js` | 唯一正式腳本，也是 Tampermonkey 安裝、自動更新及功能開發來源 |
-| `README.md` | 安裝、使用、維護及版本說明 |
-| `LICENSE` | MIT 英文原文與繁體中文對照授權條款 |
-| `.gitignore` | 限制公開儲存庫只追蹤發布必要檔案 |
-
-`Source/`、本機測試資料、代理設定及工作檔案不會上傳公開儲存庫。
-
-## 開發與發布規範
-
-1. 所有功能只修改根目錄 `main.user.js`，不得修改 `Source/`。
-2. 不得建立第二份正式腳本或功能副本。
-3. 每次新增功能或修正使用者可見問題，都必須提升 `@version`。
-4. 發布前至少執行 JavaScript 語法檢查及對應功能驗證。
-5. 只有通過驗證的版本可以推送到 `main`。
-6. 每次發布都必須提交 Git、建立版本標籤並推送 GitHub。
-7. 每個 GitHub Release 都必須清楚列出新增、調整、修正及驗證內容。
-8. 不得提交 `Source/`、本機憑證、暫存檔、代理設定或測試工作資料。
-
-## 發布檢查清單
-
-- [ ] `main.user.js` 的 `@version` 已提升。
-- [ ] `node --check main.user.js` 通過。
-- [ ] `main.user.js` 的 SHA-256 已記錄。
-- [ ] 相關桌面及窄畫面功能已驗證。
-- [ ] README 版本紀錄已更新。
-- [ ] Git 提交與版本標籤已建立。
-- [ ] 主分支與標籤已推送 GitHub。
-- [ ] GitHub Release 已填寫完整更新內容。
-- [ ] 公開儲存庫未包含排除資料。
-
-## 版本紀錄
-
-完整版本及發行說明請查看 [GitHub Releases](https://github.com/qcc781192000/idle-lineage-plugin/releases)。
-
-| 版本 | 日期 | 更新摘要 |
-|---|---|---|
-| `v3.29.4` | 2026-07-15 | 正式腳本統一為 `main.user.js`；移除兩個舊腳本檔名；授權條款改為英中對照 |
-| `v3.29.3` | 2026-07-15 | 取消出戰寵物面板懸浮定位；完整重寫 README 並建立版本發布規範 |
-| `v3.29.2` | 2026-07-15 | 精簡重複倒地提示；其餘寵物改為原地展開 |
-| `v3.29.1` | 2026-07-15 | 新增 `.user.js` 一鍵安裝與自動更新入口 |
-| `v3.29.0` | 2026-07-15 | 統一物品懸停資訊並修正遺物完整視窗裁切 |
-| `v3.28.0` | 2026-07-15 | 城堡正式切換、背包分頁及寵物分組 |
-| `v3.27.0` | 2026-07-15 | 城堡與寵物面板整合；共用生命週期、浮動層及福利來源適配器 |
-| `v3.0.0` | 2026-07-12 | 多個功能整合為單一腳本 |
-
 ## 回報問題
 
 請到 [GitHub Issues](https://github.com/qcc781192000/idle-lineage-plugin/issues) 回報，並盡量附上：
 
-- 遊戲網址與瀏覽器版本。
-- Tampermonkey 版本及外掛版本。
+- 遊戲網址與瀏覽器環境。
+- Tampermonkey 是否啟用，以及外掛畫面是否出現。
 - 問題發生前的操作步驟。
 - 畫面截圖與瀏覽器主控台錯誤。
 
