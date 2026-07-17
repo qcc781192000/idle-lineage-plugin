@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         放置天堂 ⚡ 一鍵外掛
 // @namespace    http://tampermonkey.net/
-// @version      3.38.0
+// @version      3.45.0
 // @description  放置天堂 Tampermonkey 一鍵外掛 — 加速、分類搜尋、收藏、協力隊伍與人物／技能／裝備調整。
 // @author       afk-plugin
 // @license      MIT
@@ -35,14 +35,17 @@
     try { initSkillToggleModule(); } catch (e) { console.warn('[AFK] SkillToggle', e); }
     try { initEquipmentEditorModule(); } catch (e) { console.warn('[AFK] EquipmentEditor', e); }
     try { initEmptyEquipmentPickerModule(); } catch (e) { console.warn('[AFK] EmptyEquipmentPicker', e); }
+    try { initPetEquipmentEditorModule(); } catch (e) { console.warn('[AFK] PetEquipmentEditor', e); }
     try { initItemQuantityModule(); } catch (e) { console.warn('[AFK] ItemQuantity', e); }
     try { initMasteryBadgeModule(); } catch (e) { console.warn('[AFK] MasteryBadge', e); }
     try { initNpcMaterialGuideModule(); } catch (e) { console.warn('[AFK] NpcMaterialGuide', e); }
     try { initLockedMapGuideModule(); } catch (e) { console.warn('[AFK] LockedMapGuide', e); }
+    try { initSherineShortcutModule(); } catch (e) { console.warn('[AFK] SherineShortcut', e); }
     try { initDogRaceWinnerModule(); } catch (e) { console.warn('[AFK] DogRaceWinner', e); }
     try { initSquadLayoutModule(); } catch (e) { console.warn('[AFK] SquadLayout', e); }
     try { initPandoraDockModule(); } catch (e) { console.warn('[AFK] PandoraDock', e); }
     try { initModeSwitcherModule(); } catch (e) { console.warn('[AFK] ModeSwitcher', e); }
+    try { initBackupManagerModule(); } catch (e) { console.warn('[AFK] BackupManager', e); }
     try { initAllyIntegrityModule(); } catch (e) { console.warn('[AFK] AllyIntegrity', e); }
     try { initAutoSellBooleanFixModule(); } catch (e) { console.warn('[AFK] AutoSellBooleanFix', e); }
 
@@ -923,7 +926,7 @@
             if (activeTab === 'speed') {
                 cEl.innerHTML = '<div class="as-cnt"><div class="as-sec"><div class="as-st">⚡ 核心變速 <span id="as-sts" class="as-pl"></span></div><div class="as-r"><span class="as-lb">開關</span><button id="as-tog" class="as-bt"></button></div><div class="as-r"><span class="as-lb">目標倍率</span><input id="as-spd" type="number" min="0.1" max="' + MAX_SPEED + '" step="0.1" class="as-ip"></div><input id="as-sld" type="range" min="0" max="100" step="0.1" class="as-sl"><div class="as-g3"><button class="as-bt" data-s="2">2×</button><button class="as-bt" data-s="5">5×</button><button class="as-bt" data-s="10">10×</button><button class="as-bt" data-s="50">50×</button><button class="as-bt" data-s="100">100×</button><button class="as-bt as-wn" data-s="1000">1000×</button></div><div class="as-g3"><button class="as-bt" data-s="5000">5000×</button><button class="as-bt" data-s="10000">10000×</button><button class="as-bt as-wn" data-s="50000">50000×</button></div><div class="as-st as-prof-title">效能模式</div><div class="as-profile-grid"><button class="as-bt" data-profile="smooth">嚴格流暢</button><button class="as-bt" data-profile="balanced">平衡</button><button class="as-bt" data-profile="throughput">吞吐優先</button></div><div id="as-adaptive" class="as-ht"></div><div class="as-ht">💡 50000× 是目標倍率；超過裝置能力時會丟棄過舊額度，不阻塞操作。</div></div></div>';
             } else {
-                cEl.innerHTML = '<div class="as-cnt"><div class="as-sec"><div class="as-st">⌨️ 熱鍵</div><div class="as-r"><span class="as-lb">切換加速</span><button id="as-hk" class="as-bt"></button></div><div class="as-ht">目前熱鍵：<b>' + hotkey + '</b>（點上方按鈕重新設定）</div></div><div class="as-sec"><div class="as-st">ℹ️ 關於</div><div class="as-ht">⚡ 一鍵外掛 v3.38.0<br>使用說明精簡整理<br>目標最高 50000×，並顯示實際速度</div></div></div>';
+                cEl.innerHTML = '<div class="as-cnt"><div class="as-sec"><div class="as-st">⌨️ 熱鍵</div><div class="as-r"><span class="as-lb">切換加速</span><button id="as-hk" class="as-bt"></button></div><div class="as-ht">目前熱鍵：<b>' + hotkey + '</b>（點上方按鈕重新設定）</div></div><div class="as-sec"><div class="as-st">ℹ️ 關於</div><div class="as-ht">⚡ 一鍵外掛 v3.45.0<br>使用說明精簡整理<br>目標最高 50000×，並顯示實際速度</div></div></div>';
             }
             sync();
             if (panelOpen) AFKRuntime.schedule('speed:panel-position', positionPanel);
@@ -2434,7 +2437,7 @@
     //  ✨ 技能點亮開關
     // ============================================================
     function initSkillToggleModule() {
-        var decorateQueued = false, hooked = false, elementPanel = null;
+        var decorateQueued = false, hooked = false, elementPanel = null, mobileResizeObserver = null;
         var ELEMENTS = { water:'💧 水屬性', fire:'🔥 火屬性', wind:'🌪️ 風屬性', earth:'🌱 地屬性' };
         var selectedElement = '';
 
@@ -2527,6 +2530,27 @@
             });
         }
 
+        function syncMobileSkillSize(tab) {
+            if (!tab) return;
+            if (!document.body || !document.body.classList.contains('m-mobile')) {
+                tab.style.removeProperty('--afk-skill-mobile-width');
+                tab.classList.remove('afk-skill-compact');
+                return;
+            }
+            var bar = tab.querySelector('.afk-skill-bulk');
+            if (!bar || !tab.clientWidth || !tab.clientHeight) return;
+            var computed = getComputedStyle(tab);
+            var px = function (value) { return Number.parseFloat(value) || 0; };
+            var availableWidth = tab.clientWidth - px(computed.paddingLeft) - px(computed.paddingRight);
+            var width = Math.max(180, Math.floor(Math.min(510, availableWidth)));
+            tab.style.setProperty('--afk-skill-mobile-width', width + 'px');
+            tab.classList.toggle('afk-skill-compact', width < 300);
+        }
+
+        function queueMobileSkillSize(tab) {
+            AFKRuntime.schedule('skills:mobile-size', function () { syncMobileSkillSize(tab || document.getElementById('tab-skill')); }, { replace:true });
+        }
+
         function decorateSkills() {
             decorateQueued = false;
             if (typeof player === 'undefined' || !player) return;
@@ -2557,11 +2581,32 @@
                 if (toggle.textContent !== label) toggle.textContent = label;
             });
             decorateBulk();
+            queueMobileSkillSize(document.getElementById('tab-skill'));
         }
 
         function queueDecorate() {
+            if (decorateQueued) return;
             decorateQueued = true;
             AFKRuntime.schedule('skills:decorate', decorateSkills);
+        }
+
+        function isOwnDecorationNode(node) {
+            if (!node) return false;
+            if (node.nodeType === 3) {
+                var parent = node.parentElement;
+                return !!(parent && parent.closest && parent.closest('.afk-skill-toggle,.afk-skill-bulk'));
+            }
+            if (node.nodeType !== 1) return false;
+            return !!((node.matches && node.matches('.afk-skill-toggle,.afk-skill-bulk')) ||
+                (node.closest && node.closest('.afk-skill-toggle,.afk-skill-bulk')));
+        }
+
+        function needsDecoration(records) {
+            return records.some(function (record) {
+                if (record.target && record.target.closest && record.target.closest('.afk-skill-toggle,.afk-skill-bulk')) return false;
+                var nodes = Array.prototype.slice.call(record.addedNodes || []).concat(Array.prototype.slice.call(record.removedNodes || []));
+                return nodes.some(function (node) { return !isOwnDecorationNode(node); });
+            });
         }
 
         function hookRender() {
@@ -2597,14 +2642,23 @@
             var tab = document.getElementById('tab-skill');
             if (!tab) return;
             if (typeof MutationObserver === 'function') {
-                new MutationObserver(queueDecorate).observe(tab, { childList: true, subtree: true });
+                new MutationObserver(function (records) {
+                    if (needsDecoration(records)) queueDecorate();
+                }).observe(tab, { childList: true, subtree: true });
+            }
+            if (typeof ResizeObserver === 'function') {
+                mobileResizeObserver = new ResizeObserver(function () { queueMobileSkillSize(tab); });
+                mobileResizeObserver.observe(tab);
             }
             hookRender();
             queueDecorate();
         }
         var style = document.createElement('style');
         style.textContent = '.afk-skill-element-trigger{min-height:34px;padding:5px 9px;border:1px solid #64748b;border-radius:7px;background:#172033;color:#e2e8f0;font:800 10px system-ui;cursor:pointer}.afk-skill-element-trigger:hover,.afk-skill-element-trigger[aria-expanded="true"]{border-color:#38bdf8;background:#1e3a5f}.afk-skill-element-panel{z-index:2147483630;box-sizing:border-box;width:min(320px,calc(100vw - 16px));padding:10px;border:1px solid #0e7490;border-radius:11px;background:#08101f;color:#e2e8f0;box-shadow:0 20px 50px rgba(0,0,0,.7)}.afk-skill-element-panel header{display:flex;flex-direction:column;gap:3px;margin-bottom:9px}.afk-skill-element-panel header b{color:#fde68a;font-size:12px}.afk-skill-element-panel header small{color:#94a3b8;font-size:9px;line-height:1.45}.afk-skill-element-panel>div{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.afk-skill-element-panel button{min-height:50px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;border:1px solid #475569;border-radius:8px;background:#172033;color:#cbd5e1;font:800 11px system-ui;cursor:pointer}.afk-skill-element-panel button small{color:#94a3b8;font-size:8px}.afk-skill-element-panel button.active{border-color:#22d3ee;background:#164e63;color:#ecfeff}.afk-skill-element-panel button:disabled{cursor:default;opacity:.75}.classic-skill-cell.afk-skill-element-mismatch .afk-skill-toggle{display:none!important}@media(max-width:760px){body.m-mobile #tab-skill{box-sizing:border-box!important;min-width:0!important;overflow-y:auto!important;padding-bottom:calc(76px + env(safe-area-inset-bottom,0px))!important}body.m-mobile #tab-skill .classic-skill-window{box-sizing:border-box!important;width:100%!important;max-width:100%!important;min-width:0!important;flex:none!important}body.m-mobile #tab-skill .afk-skill-bulk button{min-height:44px!important}.afk-skill-element-panel{position:fixed!important;left:8px!important;right:8px!important;bottom:calc(68px + env(safe-area-inset-bottom,0px))!important;top:auto!important;width:auto!important}.afk-skill-element-panel button{min-height:52px}}';
+        style.textContent += 'body.m-mobile #tab-skill{--afk-skill-mobile-width:min(510px,calc(100vw - 12px));flex:1 1 auto!important;align-content:flex-start!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior-y:contain!important;scroll-behavior:auto!important;overflow-anchor:none!important;padding:6px 6px calc(var(--m-nav-h,44px) + env(safe-area-inset-bottom,0px) + 8px)!important}body.m-mobile #tab-skill>.afk-skill-bulk{position:relative!important;top:auto!important;z-index:10!important;width:var(--afk-skill-mobile-width)!important;max-width:none!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;margin:0 auto 6px!important;contain:layout style!important}body.m-mobile #tab-skill>.afk-skill-bulk>span{grid-column:1/-1!important}body.m-mobile #tab-skill>.afk-skill-bulk .afk-skill-element-trigger{grid-column:1/-1!important}body.m-mobile #tab-skill>.afk-skill-bulk button{height:44px!important;min-height:44px!important}body.m-mobile #tab-skill>.classic-skill-window{box-sizing:border-box!important;width:var(--afk-skill-mobile-width)!important;max-width:none!important;min-width:0!important;flex:none!important;margin:0 auto!important;contain:layout paint!important;isolation:isolate!important}body.m-mobile #tab-skill .classic-skill-grid-scroll{-webkit-overflow-scrolling:auto!important;scroll-behavior:auto!important}body.m-mobile #tab-skill .afk-skill-toggle{-webkit-backdrop-filter:none!important;backdrop-filter:none!important;transition:none!important;will-change:auto!important;transform:none!important;box-shadow:0 2px 5px rgba(0,0,0,.58)!important}body.m-mobile #tab-skill.afk-skill-compact .afk-skill-toggle{right:2px!important;bottom:2px!important;box-sizing:border-box!important;width:20px!important;min-width:20px!important;height:18px!important;min-height:18px!important;padding:0!important;border-radius:999px!important;font-size:0!important;line-height:18px!important}body.m-mobile #tab-skill.afk-skill-compact .afk-skill-toggle:before{content:"○";font-size:11px!important;line-height:16px}body.m-mobile #tab-skill.afk-skill-compact .afk-skill-toggle.on:before{content:"✓"}body.m-mobile #tab-skill.afk-skill-compact .afk-skill-toggle.granted:before{content:"◆";font-size:8px!important}';
         document.head.appendChild(style);
+        window.addEventListener('resize', function () { queueMobileSkillSize(document.getElementById('tab-skill')); }, { passive:true });
+        if (window.visualViewport) window.visualViewport.addEventListener('resize', function () { queueMobileSkillSize(document.getElementById('tab-skill')); }, { passive:true });
         AFKRuntime.when('skills:panel', function () { return document.getElementById('tab-skill') && typeof window.renderClassicSkillBook === 'function'; }, observe);
     }
 
@@ -3088,6 +3142,257 @@
     }
 
     // ============================================================
+    //  🐾 寵物裝備新增與屬性調整
+    // ============================================================
+    function initPetEquipmentEditorModule() {
+        var current = null, picker = null, pickerPetUid = '', pickerKey = '', pickerItems = [];
+        var SLOT_META = {
+            wpn: { slot:'petwpn', label:'寵物武器', icon:'⚔️' },
+            arm: { slot:'petarm', label:'寵物防具', icon:'🛡️' }
+        };
+        var ATTRS = [
+            ['', '無'], ['fire1', '火之'], ['water1', '水之'], ['wind1', '風之'], ['earth1', '地之'],
+            ['fire3', '爆炎'], ['water3', '海嘯'], ['wind3', '暴風'], ['earth3', '崩裂'],
+            ['fire5', '火靈'], ['water5', '水靈'], ['wind5', '風靈'], ['earth5', '地靈']
+        ];
+
+        function esc(value) {
+            return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; });
+        }
+        function option(value, label, selected) {
+            return '<option value="' + esc(value) + '"' + (String(value) === String(selected) ? ' selected' : '') + '>' + esc(label) + '</option>';
+        }
+        function findPet(uidValue) {
+            try { if (typeof _petFindFresh === 'function') return _petFindFresh(uidValue); } catch (e) {}
+            try { if (typeof _petFind === 'function') return _petFind(uidValue); } catch (e) {}
+            try { return typeof petRoster === 'function' ? petRoster().find(function (pet) { return pet && String(pet.uid) === String(uidValue); }) || null : null; } catch (e) { return null; }
+        }
+        function itemDef(item) {
+            try { return item && DB.items ? DB.items[item.id] || null : null; } catch (e) { return null; }
+        }
+        function plainName(item, d) {
+            var name = d && d.n || item && item.id || '';
+            try { if (typeof getItemFullName === 'function') name = getItemFullName(item); } catch (e) {}
+            if (String(name).indexOf('<') < 0) return String(name);
+            var box = document.createElement('span'); box.innerHTML = name;
+            return (box.textContent || d && d.n || item.id || '').replace(/\s+/g, ' ').trim();
+        }
+        function freshUid() {
+            try { if (typeof uid === 'function') return uid(); } catch (e) {}
+            return 'afk-pet-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+        }
+        function closeNativeOverlay() {
+            var overlay = document.getElementById('pet-gear-overlay');
+            if (overlay) overlay.remove();
+        }
+        function closePicker(reason) {
+            if (AFKRuntime.layers.close('pet-equipment-picker', reason || 'button')) return;
+            if (picker && picker.parentNode) picker.parentNode.removeChild(picker);
+            picker = null; pickerPetUid = ''; pickerKey = ''; pickerItems = [];
+        }
+        function refreshPetPanels() {
+            try {
+                var host = document.getElementById('interaction-content');
+                if (host && host.querySelector('[data-petui]') && typeof renderPetStorageNPC === 'function') renderPetStorageNPC(host);
+            } catch (e) {}
+            try { if (typeof renderSquadPanel === 'function') renderSquadPanel(); } catch (e) {}
+        }
+        function returnToGearList() {
+            var target = current; current = null;
+            if (typeof closeModal === 'function') closeModal();
+            else { var modal = document.getElementById('item-modal'); if (modal) modal.classList.add('hidden'); }
+            if (target && typeof petGearOpen === 'function') petGearOpen(target.petUid, target.key);
+        }
+        function capOf(d) {
+            if (!d || d.relic || d.noEnhance) return 0;
+            var cap = d.maxEn == null ? 5 : Number(d.maxEn);
+            return Math.max(0, Math.min(5, Number.isFinite(cap) ? Math.floor(cap) : 5));
+        }
+        function openEditor(petUidValue, key) {
+            var pet = findPet(petUidValue), meta = SLOT_META[key], item = pet && pet.eq && pet.eq[key], d = itemDef(item);
+            if (!pet || !meta || !item || !d) return;
+            closeNativeOverlay();
+            current = { petUid:String(pet.uid), key:key };
+            try { if (typeof window.openModal === 'function') window.openModal(item, false); } catch (e) {}
+            var modal = document.getElementById('item-modal'), title = document.getElementById('modal-item-name');
+            var desc = document.getElementById('modal-item-desc'), actions = document.getElementById('modal-actions');
+            if (!modal || !title || !desc || !actions) return;
+            var cap = capOf(d), canAffix = !d.relic;
+            title.innerHTML = '🐾 調整 ' + (typeof getItemFullName === 'function' ? getItemFullName(item) : esc(d.n || item.id));
+            desc.innerHTML = '<div class="afk-equip-editor afk-pet-equip-editor">' +
+                '<label><span>強化值</span><input id="afk-pet-eq-en" type="number" min="0" max="' + cap + '" value="' + Math.max(0, Number(item.en) || 0) + '"' + (cap ? '' : ' disabled') + '></label>' +
+                '<label><span>祝福狀態</span><select id="afk-pet-eq-bless"' + (canAffix ? '' : ' disabled') + '>' +
+                    option('', '普通', item.bless || '') + option('bless', '祝福', item.bless === true ? 'bless' : item.bless) + option('cursed', '詛咒', item.bless || '') + '</select></label>' +
+                '<label><span>遠古詞綴</span><select id="afk-pet-eq-anc"' + (canAffix ? '' : ' disabled') + '>' +
+                    option('', '無', item.anc || '') + option('ancient', '遠古', item.anc === true ? 'ancient' : item.anc) +
+                    option('eternal', '永恆', item.anc || '') + option('immortal', '不朽', item.anc || '') + option('primordial', '太初', item.anc || '') + '</select></label>' +
+                '<label><span>元素詞綴</span><select id="afk-pet-eq-attr"' + (canAffix ? '' : ' disabled') + '>' +
+                    ATTRS.map(function (row) { return option(row[0], row[1], item.attr || ''); }).join('') + '</select></label>' +
+                '<small>' + (d.relic || d.noEnhance ? '此寵物裝備不可強化或修改詞綴。' : '寵物裝備強化上限為 +5；調整只套用到這隻寵物目前穿戴的裝備。') + '</small></div>';
+            actions.innerHTML =
+                '<button type="button" class="col-span-2 w-full btn afk-equip-replace-btn" data-afk-pet-equip-replace="1">＋ 更換此寵物裝備</button>' +
+                '<button type="button" class="col-span-2 w-full btn afk-editor-apply" data-afk-pet-equip-apply="1">套用調整</button>' +
+                '<button type="button" class="col-span-2 w-full btn bg-slate-700" data-afk-pet-equip-cancel="1">返回裝備清單</button>';
+            modal.classList.remove('hidden');
+        }
+        function applyEditor() {
+            if (!current) return;
+            var pet = findPet(current.petUid), item = pet && pet.eq && pet.eq[current.key], d = itemDef(item);
+            if (!pet || !item || !d) { returnToGearList(); return; }
+            var snap = null;
+            try { if (typeof _petMutationSnapshot === 'function') snap = _petMutationSnapshot(); } catch (e) {}
+            var cap = capOf(d);
+            if (cap) item.en = Math.max(0, Math.min(cap, Math.floor(Number((document.getElementById('afk-pet-eq-en') || {}).value) || 0)));
+            if (!d.relic) {
+                var bless = (document.getElementById('afk-pet-eq-bless') || {}).value || '';
+                item.bless = bless === 'bless' ? true : (bless === 'cursed' ? 'cursed' : false);
+                var anc = (document.getElementById('afk-pet-eq-anc') || {}).value || '';
+                item.anc = anc === 'ancient' ? true : (anc || false);
+                var attr = (document.getElementById('afk-pet-eq-attr') || {}).value || '';
+                item.attr = ATTRS.some(function (row) { return row[0] === attr; }) && attr ? attr : false;
+            }
+            try { pet.eqV = typeof _petNowStamp === 'function' ? _petNowStamp() : Date.now(); } catch (e) { pet.eqV = Date.now(); }
+            try { if (typeof petMarkDirty === 'function') petMarkDirty(); } catch (e) {}
+            var committed = true;
+            try {
+                if (snap && typeof _petCommitMutation === 'function') committed = _petCommitMutation(snap) !== false;
+                else if (typeof saveGame === 'function') saveGame();
+            } catch (e) { committed = false; }
+            if (!committed) { returnToGearList(); return; }
+            try {
+                if (typeof logSys === 'function') {
+                    var petLabel = typeof petDisplayName === 'function' ? petDisplayName(pet) : (pet.name || pet.form || '寵物');
+                    logSys('<span class="text-green-300">' + esc(petLabel) + ' 的 <b>' + esc(d.n || item.id) + '</b> 屬性已更新。</span>');
+                }
+            } catch (e) {}
+            refreshPetPanels();
+            openEditor(current.petUid, current.key);
+        }
+        function collectPickerItems(petUidValue, key) {
+            var meta = SLOT_META[key], owned = new Set(), result = [];
+            if (!meta) return result;
+            try {
+                (player.inv || []).forEach(function (item) {
+                    var d = itemDef(item); if (!d) return;
+                    if (item.id) owned.add(String(item.id));
+                    if (d.slot === meta.slot) result.push(item);
+                });
+                (typeof petRoster === 'function' ? petRoster() : []).forEach(function (pet) {
+                    ['wpn','arm'].forEach(function (slot) {
+                        var item = pet && pet.eq && pet.eq[slot]; if (item && item.id) owned.add(String(item.id));
+                    });
+                });
+                Object.keys(DB.items || {}).forEach(function (id) {
+                    var d = DB.items[id];
+                    if (d && d.slot === meta.slot && !owned.has(String(id))) result.push({ id:id, uid:'catalog:' + id, cnt:1, en:0, bless:false, anc:false, attr:false, _afkCatalog:true });
+                });
+            } catch (e) {}
+            return result;
+        }
+        function equipPicked(item) {
+            var petUidValue = pickerPetUid, key = pickerKey, syntheticUid = '';
+            if (!item || !findPet(petUidValue) || !SLOT_META[key]) return;
+            if (item._afkCatalog) {
+                syntheticUid = freshUid();
+                item = { id:item.id, uid:syntheticUid, cnt:1, en:0, bless:false, anc:false, attr:false, lock:false, junk:false };
+                player.inv.push(item);
+            }
+            var itemUid = item.uid;
+            closePicker('select');
+            closeNativeOverlay();
+            try {
+                if (typeof petGearEquip === 'function') petGearEquip(petUidValue, key, itemUid);
+            } catch (e) {
+                if (syntheticUid) player.inv = (player.inv || []).filter(function (entry) { return String(entry.uid) !== String(syntheticUid); });
+                throw e;
+            }
+            var pet = findPet(petUidValue), equipped = pet && pet.eq && pet.eq[key];
+            if (syntheticUid && (!equipped || String(equipped.uid) !== String(syntheticUid))) {
+                player.inv = (player.inv || []).filter(function (entry) { return String(entry.uid) !== String(syntheticUid); });
+            }
+            refreshPetPanels();
+        }
+        function renderPicker() {
+            if (!picker) return;
+            var query = String((picker.querySelector('.afk-equip-pick-search') || {}).value || '').toLowerCase().trim();
+            var list = picker.querySelector('.afk-equip-pick-list'); if (!list) return;
+            list.replaceChildren();
+            var shown = 0;
+            pickerItems.forEach(function (item) {
+                var d = itemDef(item), name = plainName(item, d);
+                if (!d || (query && (name + ' ' + item.id).toLowerCase().indexOf(query) < 0)) return;
+                var button = document.createElement('button'); button.type = 'button'; button.className = 'afk-equip-pick-item tip-host';
+                button.dataset.tipId = String(item.id);
+                if (!item._afkCatalog) { button.dataset.tipUid = String(item.uid); button.dataset.tipSrc = 'inv'; }
+                var img = document.createElement('img'); try { img.src = getIconUrl(d); } catch (e) {}
+                var text = document.createElement('span'), title = document.createElement('b'), detail = document.createElement('small');
+                title.textContent = name + ((item.cnt || 1) > 1 ? ' ×' + item.cnt : '');
+                detail.textContent = item._afkCatalog ? '＋ 新增並裝備' : '背包現有・點擊裝備';
+                text.appendChild(title); text.appendChild(detail); button.appendChild(img); button.appendChild(text);
+                button.onclick = function () { equipPicked(item); };
+                list.appendChild(button); shown++;
+            });
+            if (!shown) {
+                var empty = document.createElement('div'); empty.className = 'afk-equip-pick-empty';
+                empty.textContent = pickerItems.length ? '沒有符合搜尋條件的寵物裝備' : '目前沒有相容的寵物裝備';
+                list.appendChild(empty);
+            }
+        }
+        function openPicker(petUidValue, key) {
+            var pet = findPet(petUidValue), meta = SLOT_META[key]; if (!pet || !meta) return;
+            closePicker('replace'); closeNativeOverlay();
+            if (typeof closeModal === 'function') closeModal();
+            pickerPetUid = String(pet.uid); pickerKey = key; pickerItems = collectPickerItems(pet.uid, key);
+            picker = document.createElement('div'); picker.id = 'afk-pet-equip-picker';
+            picker.innerHTML = '<div class="afk-equip-pick-card"><div class="afk-equip-pick-head"><b>' + meta.icon + ' 自訂' + meta.label + '</b><button type="button" aria-label="關閉">×</button></div>' +
+                '<div class="afk-equip-pick-hint">背包現有物品可直接穿戴；「新增並裝備」會建立一件相容裝備後穿戴。</div>' +
+                '<input class="afk-equip-pick-search" type="search" placeholder="搜尋寵物裝備名稱或 ID…"><div class="afk-equip-pick-list"></div></div>';
+            document.body.appendChild(picker);
+            picker.querySelector('.afk-equip-pick-head button').onclick = function () { closePicker('button'); };
+            picker.querySelector('.afk-equip-pick-search').oninput = renderPicker;
+            AFKRuntime.layers.open('pet-equipment-picker', { element:picker, content:picker.querySelector('.afk-equip-pick-card'), position:false, onClose:function () {
+                if (picker && picker.parentNode) picker.parentNode.removeChild(picker);
+                picker = null; pickerPetUid = ''; pickerKey = ''; pickerItems = [];
+            } });
+            renderPicker();
+        }
+        function decorateOverlay(petUidValue, key) {
+            var overlay = document.getElementById('pet-gear-overlay'), pet = findPet(petUidValue), meta = SLOT_META[key];
+            if (!overlay || !pet || !meta) return;
+            var card = overlay.firstElementChild;
+            var line = card && Array.prototype.slice.call(card.children || []).find(function (node) { return /^目前：/.test((node.textContent || '').trim()); });
+            var currentText = line && line.querySelector('b'), item = pet.eq && pet.eq[key];
+            if (!line || !currentText) return;
+            currentText.classList.add('afk-pet-current-gear');
+            currentText.dataset.afkPetOwner = String(pet.uid); currentText.dataset.afkPetSlot = key;
+            currentText.tabIndex = 0; currentText.setAttribute('role', 'button');
+            currentText.title = item ? '點擊調整這件寵物裝備的屬性' : '點擊新增可裝備的寵物道具';
+            var activate = function (event) {
+                if (event && event.type === 'keydown' && event.key !== 'Enter' && event.key !== ' ') return;
+                if (event) { event.preventDefault(); event.stopPropagation(); }
+                if (item) openEditor(pet.uid, key); else openPicker(pet.uid, key);
+            };
+            currentText.onclick = activate; currentText.onkeydown = activate;
+            var action = document.createElement('button'); action.type = 'button'; action.className = 'btn afk-pet-gear-customize';
+            action.textContent = item ? '🔧 調整目前裝備屬性' : '＋ 新增可裝備的' + meta.label;
+            action.onclick = activate; line.insertAdjacentElement('afterend', action);
+        }
+        document.addEventListener('click', function (event) {
+            if (event.target && event.target.closest && event.target.closest('[data-afk-pet-equip-apply]')) { event.preventDefault(); applyEditor(); return; }
+            if (event.target && event.target.closest && event.target.closest('[data-afk-pet-equip-replace]')) {
+                event.preventDefault(); if (current) openPicker(current.petUid, current.key); return;
+            }
+            if (event.target && event.target.closest && event.target.closest('[data-afk-pet-equip-cancel]')) { event.preventDefault(); returnToGearList(); }
+        }, true);
+        var style = document.createElement('style');
+        style.textContent = '#afk-pet-equip-picker{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;padding:12px;background:rgba(2,6,23,.68);font-family:system-ui,sans-serif}.afk-pet-current-gear{display:inline-flex;align-items:center;min-height:26px;padding:2px 7px;border:1px dashed #c084fc;border-radius:6px;background:#2e1065;color:#f5d0fe!important;cursor:pointer}.afk-pet-current-gear:hover,.afk-pet-current-gear:focus-visible{border-style:solid;background:#581c87;outline:2px solid rgba(192,132,252,.35);outline-offset:2px}.afk-pet-gear-customize{box-sizing:border-box;width:100%;min-height:36px;margin:4px 0 7px!important;padding:7px 9px!important;border:1px solid #7c3aed!important;border-radius:7px!important;background:linear-gradient(135deg,#4c1d95,#2e1065)!important;color:#f3e8ff!important;font-weight:900!important;cursor:pointer!important}.afk-pet-equip-editor small{color:#c4b5fd!important}@media(max-width:760px){#afk-pet-equip-picker{align-items:flex-end;padding:6px 6px calc(66px + env(safe-area-inset-bottom,0px))}#afk-pet-equip-picker .afk-equip-pick-card{width:100%;max-height:calc(100dvh - 78px);border-radius:14px 14px 9px 9px}.afk-pet-current-gear{min-height:32px}.afk-pet-gear-customize{min-height:44px!important;font-size:13px!important}}';
+        document.head.appendChild(style);
+        AFKRuntime.when('pet-equipment:ready', function () { return typeof window.petGearOpen === 'function' && typeof window.petGearEquip === 'function'; }, function () {
+            AFKRuntime.hooks.after('petGearOpen', 'pet-equipment-editor', function (result, args) { decorateOverlay(args[0], args[1]); }, { frame:false });
+        });
+    }
+
+    // ============================================================
     //  🏅 狀態列職業專精顯示與自訂
     // ============================================================
     function initMasteryBadgeModule() {
@@ -3217,6 +3522,11 @@
                 ['item_sealed_intel','魔族暗殺團'], ['item_spy_report','魔族暗殺團'],
                 ['new_item_241','黑騎士搜索隊']
             ].forEach(function (row) { addNamedDrop(row[0], row[1]); });
+            // 瑪那魔杖需先狩獵變形怪取得「變形怪的血」，再交給象牙塔塔拉斯兌換。
+            // 原始資料只記錄成品說明，沒有將這條間接取得路線納入物品來源索引。
+            ['變形怪','變形怪首領'].forEach(function (mob) {
+                (mobMaps[mob] || []).forEach(function (map) { addDrop('wpn_manawand', mob, map, '取得變形怪的血後向塔拉斯兌換'); });
+            });
             addDrop('item_elf_whisper', '精靈墓穴怪物', 'elf_grave');
             try {
                 Object.keys(DB.maps || {}).forEach(function (map) {
@@ -3291,6 +3601,7 @@
             addExchangeNpc('npc_duwen', ['new_item_219']);
             addExchangeNpc('npc_procel', ['mat_rift_shard']);
             addExchangeNpc('npc_red', ['new_item_150','acc_summon_ctrl','acc_minion_proof_1','acc_minion_proof_2','acc_minion_proof_3','acc_minion_proof_4','acc_minion_proof_5']);
+            addExchangeNpc('npc_taras', ['new_item_240','wpn_manawand','arm_89'], '瑪那試煉：變形怪的血兌換');
         }
         function closeGuide() {
             if (AFKRuntime.layers.close('material-source', 'button')) return;
@@ -3379,7 +3690,13 @@
             var target = anchor && anchor.getBoundingClientRect ? anchor : document.body;
             AFKRuntime.layers.open('material-source', { element:panel, anchor:target, triggers:[target], gap:6, onClose:function () { if (panel && panel.parentNode) panel.parentNode.removeChild(panel); panel = null; } });
         }
-        AFKRuntime.materialGuide = { open:function (ids, anchor) { openGuide(ids, anchor); }, openMob:function (name, anchor) { openMobGuide(name, anchor); }, close:closeGuide };
+        AFKRuntime.materialGuide = {
+            open:function (ids, anchor) { openGuide(ids, anchor); },
+            openMob:function (name, anchor) { openMobGuide(name, anchor); },
+            goMap:function (map) { goMap(map); },
+            goNpc:function (npcId) { goNpc(npcId); },
+            close:closeGuide
+        };
         function hookCraftHtml() {
             AFKRuntime.hooks.intercept('craftReqHtml', 'material-guide', function (next, self, args) {
                 var req = args[0], html = next.apply(self, args);
@@ -3527,7 +3844,16 @@
     // ============================================================
     function initLockedMapGuideModule() {
         var categorySelect = null, mapSelect = null, categoryTrigger = null, mapTrigger = null, panel = null;
+        var HIDDEN_TELEPORT_DESTINATIONS = {
+            zone_33:'巨蟻女皇棲息地',
+            zone_37:'無生物研究室',
+            zone_38:'黑魔法研究室',
+            zone_39:'惡靈封印室',
+            zone_40:'魔物封印室',
+            zone_41:'惡魔封印室'
+        };
         function esc(value) { return String(value == null ? '' : value).replace(/[&<>"']/g, function (c) { return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]; }); }
+        function hiddenTeleportOf(value) { return HIDDEN_TELEPORT_DESTINATIONS[String(value || '')] || ''; }
         function entryOf(value) {
             try { var entry = typeof mapEntryOf === 'function' ? mapEntryOf(value) : null; if (entry) return entry; } catch (e) {}
             try { var list = categorySelect && typeof regionMapList === 'function' ? regionMapList(categorySelect.value) : []; var found = (list || []).filter(function (row) { return row && row.v === value; })[0]; if (found) return found; } catch (e) {}
@@ -3538,7 +3864,9 @@
         function currentLabel(kind) {
             var select = selectOf(kind); if (!select) return kind === 'category' ? '選擇地區' : '選擇地圖';
             var option = select.options[select.selectedIndex], entry = kind === 'map' ? entryOf(select.value) : null;
-            return option ? option.textContent : (entry && entry.t ? entry.t : (kind === 'category' ? '選擇地區' : '選擇地圖'));
+            var label = option ? option.textContent : (entry && entry.t ? entry.t : (kind === 'category' ? '選擇地區' : '選擇地圖'));
+            var hidden = kind === 'map' ? hiddenTeleportOf(select.value) : '';
+            return hidden ? label + ' → ' + hidden : label;
         }
         function syncTrigger(kind) {
             var trigger = triggerOf(kind), select = selectOf(kind); if (!trigger || !trigger.isConnected) return;
@@ -3557,18 +3885,46 @@
             try { Object.keys(DB.items || {}).forEach(function (id) { var d = DB.items[id]; if (d && Number(d.prideTier) === Number(tier) && ['pass','dom','scroll'].indexOf(d.prideKind) >= 0) ids.push(id); }); } catch (e) {}
             return ids;
         }
+        function trialRoute() {
+            var cls = typeof player !== 'undefined' && player ? player.cls : '', npcId = {
+                knight:'npc_digallatin', elf:'npc_digallatin', mage:'npc_digallatin', royal:'npc_digallatin',
+                dark:'npc_brudica', illusion:'npc_shenien', warrior:'npc_duwen', dragon:'npc_procel'
+            }[cls];
+            if (!npcId) return null;
+            var names = { npc_digallatin:'迪嘉勒廷・象牙塔', npc_brudica:'布魯迪卡・沉默洞穴', npc_shenien:'希蓮恩・希培利亞村莊', npc_duwen:'多文・海音', npc_procel:'普洛凱爾・貝希摩斯' };
+            return { kind:'npc', target:npcId, label:'⚔️ 前往職業試煉', detail:names[npcId] || '前往對應職業試煉 NPC' };
+        }
         function conditionInfo(entry) {
             if (!entry) return { title:'尚未開放', detail:'目前沒有可用的進入條件資料。' };
             var owns = function (id) { try { return !!(id && player && player.inv && player.inv.some(function (item) { return item && item.id === id && Number(item.cnt || 1) >= 1; })); } catch (e) { return false; } };
             if (entry.needKey && !owns(entry.needKey)) return { ids:[entry.needKey], title:'缺少進入鑰匙', detail:'進入時會消耗 1 個指定物品。' };
-            if (entry.questReq === 'demonTemple' && !(player && player.demonTempleOpen)) return { title:'職業試煉尚未完成', detail:'需要完成角色 50 級職業試煉的指定階段。' };
+            if (entry.questReq === 'demonTemple' && !(player && player.demonTempleOpen)) {
+                var trial = trialRoute();
+                return { title:'職業試煉尚未完成', detail:'需要完成角色 50 級職業試煉的指定階段。', routes:trial ? [trial] : [] };
+            }
             if (entry.keyHoldReq && !owns(entry.keyHoldReq)) return { ids:[entry.keyHoldReq], title:'缺少持有物品', detail:'需要持有指定物品，進入時不會消耗。' };
-            if (entry.affinityReq && Number(player && player.flameAffinity || 0) < Number(entry.affinityReq)) return { title:'炎魔友好度不足', detail:'目前友好度 ' + Number(player && player.flameAffinity || 0) + '／需要 ' + Number(entry.affinityReq) + '。' };
+            if (entry.affinityReq && Number(player && player.flameAffinity || 0) < Number(entry.affinityReq)) return {
+                title:'炎魔友好度不足',
+                detail:'目前友好度 ' + Number(player && player.flameAffinity || 0) + '／需要 ' + Number(entry.affinityReq) + '。請在魔族神殿擊殺怪物累積友好度。',
+                routes:[{ kind:'map', target:'demon_temple', label:'👹 前往累積友好度', detail:'魔族神殿・擊殺怪物累積炎魔友好度' }]
+            };
             if (entry.prideReq === 'jenis' && !(player && player.prideBeatJenis)) return { title:'尚未通過傲慢之塔試煉', detail:'需要先擊敗潔尼斯女王，才能進入傲慢之塔 2～10 樓。' };
             if (typeof entry.prideReq === 'number') return { ids:prideItems(entry.prideReq), title:'缺少傲慢之塔通行物品', detail:'需持有對應樓層的傳送符、支配符或移動卷軸。' };
             if (entry.classicHide && player && player.classicMode) return { title:'經典模式限制', detail:'此地圖無法在經典模式中進入。' };
             if (entry.disabled) return { title:'地圖流程尚未完成', detail:'需要先完成前一階段，才能進入此地圖。' };
             return { title:'地圖尚未開放', detail:'此地圖目前不可進入，且沒有可直接尋路的物品條件。' };
+        }
+        function followConditionRoute(route) {
+            if (!route || !route.target) return;
+            closePanel('route');
+            if (route.kind === 'npc' && AFKRuntime.materialGuide && typeof AFKRuntime.materialGuide.goNpc === 'function') {
+                AFKRuntime.materialGuide.goNpc(route.target); return;
+            }
+            if (route.kind === 'map' && mapSelect) {
+                mapSelect.value = route.target;
+                if (typeof changeMap === 'function') changeMap(); else mapSelect.dispatchEvent(new Event('change', { bubbles:true }));
+                syncTriggers();
+            }
         }
         function showCondition(entry) {
             var info = conditionInfo(entry);
@@ -3576,8 +3932,12 @@
                 closePanel('route'); AFKRuntime.materialGuide.open(info.ids.join(','), mapTrigger); return;
             }
             if (!panel) return;
-            panel.innerHTML = '<div class="afk-map-choice-head"><b>🔒 ' + esc(info.title) + '</b><button type="button" data-afk-map-back aria-label="返回">←</button></div><div class="afk-map-condition"><strong>' + esc(entry && entry.t || '地圖') + '</strong><p>' + esc(info.detail) + '</p><small>此提示不會略過原始進入限制。</small></div>';
+            var routes = info.routes || [], routeHtml = routes.map(function (route, index) {
+                return '<button type="button" class="afk-map-condition-route" data-afk-condition-route="' + index + '"><b>' + esc(route.label) + '</b><span>' + esc(route.detail || '') + '</span></button>';
+            }).join('');
+            panel.innerHTML = '<div class="afk-map-choice-head"><b>🔒 ' + esc(info.title) + '</b><button type="button" data-afk-map-back aria-label="返回">←</button></div><div class="afk-map-condition"><strong>' + esc(entry && entry.t || '地圖') + '</strong><p>' + esc(info.detail) + '</p>' + routeHtml + '<small>此提示與尋路不會略過原始進入限制。</small></div>';
             panel.querySelector('[data-afk-map-back]').onclick = function () { openList('map'); };
+            panel.querySelectorAll('[data-afk-condition-route]').forEach(function (button) { button.onclick = function () { followConditionRoute(routes[Number(button.dataset.afkConditionRoute)]); }; });
             AFKRuntime.layers.position('map-choice');
         }
         function choose(kind, value) {
@@ -3598,11 +3958,14 @@
             kind = kind === 'category' ? 'category' : 'map';
             var select = selectOf(kind), trigger = triggerOf(kind); if (!select || !trigger) return;
             if (!panel || !panel.isConnected) { panel = document.createElement('div'); panel.id = 'afk-map-choice'; document.body.appendChild(panel); }
-            var html = '<div class="afk-map-choice-head"><b>' + (kind === 'category' ? '🌐 選擇地區' : '🗺️ 選擇地圖') + '</b><button type="button" data-afk-map-close aria-label="關閉">×</button></div><div class="afk-map-choice-list" role="listbox">';
+            var html = '<div class="afk-map-choice-head"><b>' + (kind === 'category' ? '🌐 選擇地區' : '🗺️ 選擇地圖') + '</b><button type="button" data-afk-map-close aria-label="關閉">×</button></div><div class="afk-map-teleport-note">🌀 可瞬移：點選可進入的' + (kind === 'category' ? '地區會立即前往記憶地點或第一張可用地圖。' : '地圖會立即移動；標有「再次瞬移」的母地圖可再按面板瞬移鍵進入隱藏區域。') + '</div><div class="afk-map-choice-list" role="listbox">';
             Array.prototype.forEach.call(select.options, function (option) {
                 var entry = kind === 'map' ? entryOf(option.value) : null, blocked = kind === 'map' && !!option.disabled;
+                var hidden = kind === 'map' ? hiddenTeleportOf(option.value) : '';
                 try { if (kind === 'map' && entry && typeof mapOptDisabled === 'function') blocked = mapOptDisabled(entry); } catch (e) {}
-                html += '<button type="button" role="option" aria-selected="' + (select.value === option.value ? 'true' : 'false') + '" class="' + (blocked ? 'locked' : '') + '" data-afk-map-kind="' + kind + '" data-afk-map-value="' + esc(option.value) + '"><span>' + esc(option.textContent) + '</span><em>' + (blocked ? '🔒 查看條件' : (select.value === option.value ? '目前位置' : (kind === 'category' ? '前往地區' : '前往'))) + '</em></button>';
+                var action = blocked ? '🔒 查看條件' : (hidden ? (select.value === option.value ? '🌀 再按瞬移鍵' : '🌀 先到母地圖') : (select.value === option.value ? '目前位置' : (kind === 'category' ? '🌀 切換地區' : ((entry && entry.needKey) ? '🔑 開啟入口' : '🌀 點擊瞬移'))));
+                var labelHtml = '<b>' + esc(option.textContent) + '</b>' + (hidden ? '<small>再次瞬移 → ' + esc(hidden) + '</small>' : '');
+                html += '<button type="button" role="option" aria-selected="' + (select.value === option.value ? 'true' : 'false') + '" class="' + (blocked ? 'locked' : '') + (hidden ? ' has-hidden-teleport' : '') + '" data-afk-map-kind="' + kind + '" data-afk-map-value="' + esc(option.value) + '"><span>' + labelHtml + '</span><em>' + action + '</em></button>';
             });
             panel.innerHTML = html + '</div>';
             panel.querySelector('[data-afk-map-close]').onclick = function () { closePanel('button'); };
@@ -3629,14 +3992,88 @@
         function ensure() {
             categorySelect = document.getElementById('map-category'); mapSelect = document.getElementById('map-select'); if (!categorySelect || !mapSelect) return false;
             categorySelect.classList.add('afk-map-native-select'); mapSelect.classList.add('afk-map-native-select');
+            if (mapSelect.parentElement && mapSelect.parentElement === categorySelect.parentElement) mapSelect.parentElement.classList.add('afk-map-mobile-controls');
             categoryTrigger = ensureTrigger('category'); mapTrigger = ensureTrigger('map'); syncTriggers(); return true;
         }
         var style = document.createElement('style');
-        style.textContent = '.afk-map-native-select{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}#afk-map-category-trigger,#afk-map-choice-trigger{box-sizing:border-box;min-width:120px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#e2e8f0;font:800 11px system-ui;cursor:pointer}#afk-map-choice-trigger{min-width:150px}#afk-map-category-trigger span,#afk-map-choice-trigger span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#afk-map-category-trigger em,#afk-map-choice-trigger em{flex:none;color:#94a3b8;font-style:normal}#afk-map-choice{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(520px,calc(100vh - 16px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #475569;border-radius:10px;background:#0f172a;color:#e2e8f0;box-shadow:0 18px 45px rgba(0,0,0,.72)}.afk-map-choice-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #334155;background:#172033}.afk-map-choice-head b{color:#fde68a;font-size:11px}.afk-map-choice-head button{width:28px;height:28px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#fff;cursor:pointer}.afk-map-choice-list{min-height:0;overflow:auto;padding:6px;-webkit-overflow-scrolling:touch}.afk-map-choice-list>button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid transparent;border-radius:7px;background:transparent;color:#e2e8f0;text-align:left;cursor:pointer}.afk-map-choice-list>button:hover{border-color:#0e7490;background:#164e63}.afk-map-choice-list>button[aria-selected="true"]{background:#134e4a;color:#d1fae5}.afk-map-choice-list>button.locked{color:#64748b}.afk-map-choice-list>button.locked:hover{border-color:#b45309;background:#451a03;color:#fcd34d}.afk-map-choice-list em{flex:none;color:#94a3b8;font:normal 8px system-ui}.afk-map-condition{display:flex;flex-direction:column;gap:7px;padding:12px}.afk-map-condition strong{color:#fcd34d}.afk-map-condition p{margin:0;color:#cbd5e1;font-size:11px;line-height:1.6}.afk-map-condition small{color:#64748b;font-size:9px}@media(max-width:760px){#afk-map-category-trigger,#afk-map-choice-trigger{flex:1 1 40%;width:auto;min-width:0;min-height:44px;font-size:13px;touch-action:manipulation}#afk-map-choice{width:calc(100vw - 12px);max-height:min(70dvh,560px)}.afk-map-choice-list>button{min-height:48px;font-size:15px;touch-action:manipulation}}';
+        style.textContent = '.afk-map-native-select{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;opacity:0!important;pointer-events:none!important}#afk-map-category-trigger,#afk-map-choice-trigger{box-sizing:border-box;min-width:120px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:7px 10px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#e2e8f0;font:800 11px system-ui;cursor:pointer}#afk-map-choice-trigger{min-width:150px}#afk-map-category-trigger span,#afk-map-choice-trigger span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#afk-map-category-trigger em,#afk-map-choice-trigger em{flex:none;color:#94a3b8;font-style:normal}#afk-map-choice{box-sizing:border-box;width:min(360px,calc(100vw - 16px));max-height:min(520px,calc(100vh - 16px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #475569;border-radius:10px;background:#0f172a;color:#e2e8f0;box-shadow:0 18px 45px rgba(0,0,0,.72)}.afk-map-choice-head{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #334155;background:#172033}.afk-map-choice-head b{color:#fde68a;font-size:11px}.afk-map-choice-head button{width:28px;height:28px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#fff;cursor:pointer}.afk-map-teleport-note{padding:7px 10px;border-bottom:1px solid #164e63;background:#082f49;color:#a5f3fc;font:700 9px/1.5 system-ui}.afk-map-choice-list{min-height:0;overflow:auto;padding:6px;-webkit-overflow-scrolling:touch}.afk-map-choice-list>button{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid transparent;border-radius:7px;background:transparent;color:#e2e8f0;text-align:left;cursor:pointer}.afk-map-choice-list>button>span{min-width:0;display:flex;flex-direction:column;gap:2px}.afk-map-choice-list>button>span>b{overflow:hidden;font-size:inherit;text-overflow:ellipsis;white-space:nowrap}.afk-map-choice-list>button>span>small{color:#67e8f9;font-size:8px;font-weight:800}.afk-map-choice-list>button.has-hidden-teleport{border-color:rgba(8,145,178,.35);background:rgba(8,47,73,.34)}.afk-map-choice-list>button:hover{border-color:#0e7490;background:#164e63}.afk-map-choice-list>button[aria-selected="true"]{background:#134e4a;color:#d1fae5}.afk-map-choice-list>button.locked{color:#64748b}.afk-map-choice-list>button.locked:hover{border-color:#b45309;background:#451a03;color:#fcd34d}.afk-map-choice-list em{flex:none;color:#94a3b8;font:normal 8px system-ui}.afk-map-condition{display:flex;flex-direction:column;gap:7px;padding:12px}.afk-map-condition strong{color:#fcd34d}.afk-map-condition p{margin:0;color:#cbd5e1;font-size:11px;line-height:1.6}.afk-map-condition small{color:#64748b;font-size:9px}.afk-map-condition-route{width:100%;display:flex;flex-direction:column;gap:2px;padding:9px 10px;border:1px solid #b45309;border-radius:8px;background:#3a2f12;color:#fef3c7;text-align:left;cursor:pointer}.afk-map-condition-route:hover{border-color:#f59e0b;background:#5b3a08}.afk-map-condition-route span{color:#d6d3d1;font-size:9px}@media(max-width:760px){#afk-map-category-trigger,#afk-map-choice-trigger{flex:1 1 40%;width:auto;min-width:0;min-height:44px;font-size:13px;touch-action:manipulation}#afk-map-choice{width:calc(100vw - 12px);max-height:min(70dvh,560px)}.afk-map-choice-list>button,.afk-map-condition-route{min-height:48px;font-size:15px;touch-action:manipulation}.afk-map-choice-list>button>span>small{font-size:10px}.afk-map-teleport-note{font-size:11px}}';
+        style.textContent += 'body.m-mobile #map-view-panel>.panel-header{box-sizing:border-box!important;width:100%!important;display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;align-items:stretch!important;justify-content:stretch!important;gap:6px!important;padding:7px 8px!important}body.m-mobile #map-view-panel>.panel-header>span:first-child{display:none!important}body.m-mobile #map-view-panel>.panel-header>.afk-map-mobile-controls{display:contents!important}body.m-mobile #map-view-panel>.panel-header #afk-sherine-mode-trigger{grid-row:1!important;grid-column:1!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:40px!important;justify-content:center!important;margin:0!important;padding:5px 4px!important}body.m-mobile #map-view-panel>.panel-header #afk-sherine-mode-trigger span{overflow:hidden;text-overflow:ellipsis}body.m-mobile #map-view-panel>.panel-header #btn-teleport,body.m-mobile #map-view-panel>.panel-header #btn-return-town,body.m-mobile #map-view-panel>.panel-header #afk-rv{box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:40px!important;margin:0!important;padding:5px 4px!important;justify-content:center!important;font-size:12px!important;overflow:hidden!important;text-overflow:ellipsis!important}body.m-mobile #map-view-panel>.panel-header:not(:has(#btn-teleport:not(.hidden))) #btn-return-town{grid-row:1!important;grid-column:2!important}body.m-mobile #map-view-panel>.panel-header:not(:has(#btn-teleport:not(.hidden))) #afk-rv{grid-row:1!important;grid-column:3/5!important}body.m-mobile #map-view-panel>.panel-header:has(#btn-teleport:not(.hidden)) #btn-teleport{grid-row:1!important;grid-column:2!important}body.m-mobile #map-view-panel>.panel-header:has(#btn-teleport:not(.hidden)) #btn-return-town{grid-row:1!important;grid-column:3!important}body.m-mobile #map-view-panel>.panel-header:has(#btn-teleport:not(.hidden)) #afk-rv{grid-row:1!important;grid-column:4!important}body.m-mobile #map-view-panel>.panel-header #btn-revive:not(.hidden){grid-column:1/3!important}body.m-mobile #map-view-panel>.panel-header #btn-revive-inplace:not(.hidden){grid-column:3/5!important}body.m-mobile #map-view-panel>.panel-header #afk-map-category-trigger{grid-row:2!important;grid-column:1/3!important;width:100%!important;min-width:0!important;min-height:40px!important}body.m-mobile #map-view-panel>.panel-header #afk-map-choice-trigger{grid-row:2!important;grid-column:3/5!important;width:100%!important;min-width:0!important;min-height:40px!important}';
         document.head.appendChild(style);
         ['rebuildMapCategoryOptions','populateMapSelect','setMapSelectors','changeMap','loadGame'].forEach(function (name) { AFKRuntime.hooks.after(name, 'locked-map-guide', function () { ensure(); syncTriggers(); }); });
         document.addEventListener('change', function (e) { if (e.target === categorySelect || e.target === mapSelect) syncTriggers(); });
         AFKRuntime.when('map-guide:select', function () { return document.getElementById('map-category') && document.getElementById('map-select'); }, function () { ensure(); });
+    }
+
+    // ============================================================
+    //  🙏 席琳模式快捷面板
+    // ============================================================
+    function initSherineShortcutModule() {
+        var button = null, panel = null;
+        function stateLabel() {
+            if (typeof player === 'undefined' || !player) return '讀取中';
+            if (player.classicMode) return '經典限制';
+            if (player.sherineMad) return '瘋狂';
+            if (player.sherineWorld) return '一般';
+            return '關閉';
+        }
+        function syncButton() {
+            if (!button || !button.isConnected) return;
+            var state = stateLabel();
+            button.innerHTML = '<span>🙏 席琳</span><em>' + state + '</em>';
+            button.classList.toggle('active', state === '一般' || state === '瘋狂');
+            button.classList.toggle('mad', state === '瘋狂');
+            button.setAttribute('aria-expanded', panel && panel.isConnected ? 'true' : 'false');
+            button.title = '開啟席琳模式設定（目前：' + state + '）';
+        }
+        function close(reason) {
+            if (AFKRuntime.layers.close('sherine-mode', reason || 'button')) return;
+            if (panel && panel.parentNode) panel.parentNode.removeChild(panel);
+            panel = null; syncButton();
+        }
+        function renderPanel() {
+            if (!panel || !panel.isConnected) { syncButton(); return; }
+            var body = panel.querySelector('.afk-sherine-mode-body'); if (!body) return;
+            if (typeof player !== 'undefined' && player && player.classicMode) {
+                body.innerHTML = '<div class="afk-sherine-limit"><b>經典模式無法使用席琳世界</b><span>切換至一般模式後，才可開啟一般或瘋狂的席琳世界。</span></div>';
+            } else if (typeof renderSherinePray === 'function') {
+                renderSherinePray(body);
+            } else {
+                body.innerHTML = '<div class="afk-sherine-limit"><b>席琳尚未回應</b><span>模式資料仍在載入，請稍後再試。</span></div>';
+            }
+            syncButton(); AFKRuntime.layers.position('sherine-mode');
+        }
+        function open() {
+            if (panel && panel.isConnected) { close('toggle'); return; }
+            panel = document.createElement('section'); panel.id = 'afk-sherine-mode-panel'; panel.setAttribute('role', 'dialog'); panel.setAttribute('aria-label', '席琳模式設定');
+            panel.innerHTML = '<header><span><b>🙏 席琳模式</b><small>一般與瘋狂模式互斥，沿用原始等級與模式限制</small></span><button type="button" aria-label="關閉">×</button></header><div class="afk-sherine-mode-body"></div>';
+            panel.querySelector('header button').onclick = function () { close('button'); };
+            document.body.appendChild(panel); renderPanel();
+            AFKRuntime.layers.open('sherine-mode', {
+                element:panel, anchor:button, triggers:[button], gap:6, align:'start',
+                onClose:function () { if (panel && panel.parentNode) panel.parentNode.removeChild(panel); panel = null; syncButton(); }
+            });
+            syncButton();
+        }
+        function ensure() {
+            var header = document.querySelector('#map-view-panel > .panel-header'); if (!header) return false;
+            button = document.getElementById('afk-sherine-mode-trigger');
+            if (!button) {
+                button = document.createElement('button'); button.type = 'button'; button.id = 'afk-sherine-mode-trigger'; button.setAttribute('aria-haspopup', 'dialog'); button.setAttribute('aria-expanded', 'false');
+                button.onclick = function (event) { event.preventDefault(); event.stopPropagation(); open(); };
+                var title = header.firstElementChild;
+                if (title && title.nextSibling) header.insertBefore(button, title.nextSibling); else header.appendChild(button);
+            }
+            syncButton(); return true;
+        }
+        var style = document.createElement('style');
+        style.textContent = '#afk-sherine-mode-trigger{flex:none;display:flex;align-items:center;gap:6px;margin-left:8px;margin-right:auto;padding:6px 9px;border:1px solid #7c3aed;border-radius:7px;background:#2e1065;color:#ddd6fe;font:800 10px system-ui;cursor:pointer;white-space:nowrap;box-shadow:0 0 0 1px rgba(167,139,250,.12)}#afk-sherine-mode-trigger:hover,#afk-sherine-mode-trigger[aria-expanded="true"]{border-color:#c084fc;background:#4c1d95}#afk-sherine-mode-trigger.active{border-color:#ef4444;background:#7f1d1d;color:#fee2e2}#afk-sherine-mode-trigger.mad{border-color:#fb7185;background:#881337;color:#ffe4e6}#afk-sherine-mode-trigger em{color:#c4b5fd;font:normal 8px system-ui}#afk-sherine-mode-trigger.active em{color:#fecaca}#afk-sherine-mode-panel{box-sizing:border-box;width:min(430px,calc(100vw - 16px));max-height:min(650px,calc(100dvh - 16px));display:flex;flex-direction:column;overflow:hidden;border:1px solid #7c3aed;border-radius:12px;background:#0f172a;color:#e2e8f0;box-shadow:0 22px 60px rgba(0,0,0,.78)}#afk-sherine-mode-panel>header{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-bottom:1px solid #4c1d95;background:linear-gradient(135deg,#2e1065,#4c0519)}#afk-sherine-mode-panel>header span{min-width:0;display:flex;flex-direction:column;gap:2px}#afk-sherine-mode-panel>header b{color:#f5d0fe;font-size:13px}#afk-sherine-mode-panel>header small{color:#c4b5fd;font-size:9px}#afk-sherine-mode-panel>header button{width:30px;height:30px;border:1px solid #6d28d9;border-radius:7px;background:#1e293b;color:#fff;font-size:18px;cursor:pointer}.afk-sherine-mode-body{min-height:0;overflow:auto;padding:11px;-webkit-overflow-scrolling:touch}.afk-sherine-limit{display:flex;flex-direction:column;gap:5px;padding:14px;border:1px solid #92400e;border-radius:9px;background:#451a03}.afk-sherine-limit b{color:#fde68a}.afk-sherine-limit span{color:#cbd5e1;font-size:11px;line-height:1.6}@media(max-width:760px){#afk-sherine-mode-trigger{min-height:40px;margin-left:4px;padding:5px 7px}#afk-sherine-mode-trigger em{display:none}#afk-sherine-mode-panel{position:fixed!important;left:6px!important;right:6px!important;bottom:calc(66px + env(safe-area-inset-bottom,0px))!important;top:auto!important;width:auto!important;max-height:calc(100dvh - 80px)}}';
+        document.head.appendChild(style);
+        AFKRuntime.when('sherine:host', function () { return document.querySelector('#map-view-panel > .panel-header') && typeof player !== 'undefined'; }, function () { ensure(); AFKRuntime.every('sherine:refresh', function () { ensure(); syncButton(); }, 1000); });
+        AFKRuntime.when('sherine:hooks', function () { return typeof window.toggleSherineWorld === 'function' && typeof window.toggleSherineMad === 'function'; }, function () {
+            AFKRuntime.hooks.after('toggleSherineWorld', 'sherine-shortcut', function () { renderPanel(); });
+            AFKRuntime.hooks.after('toggleSherineMad', 'sherine-shortcut', function () { renderPanel(); });
+            AFKRuntime.hooks.after('loadGame', 'sherine-shortcut', function () { renderPanel(); syncButton(); });
+        });
     }
 
     // ============================================================
@@ -3828,11 +4265,12 @@
     function initSquadLayoutModule() {
         var KEY = 'afk_squad_type_tab';
         var PET_GROUP_KEY = 'afk_pet_reserve_open';
+        var PET_ROSTER_LIMIT = 20;
         var SKILL_OPEN_KEY = 'afk_squad_skill_open_slot';
         var activeType = localStorage.getItem(KEY) || 'mercenary';
         if (['mercenary', 'pet', 'summon'].indexOf(activeType) < 0) activeType = 'mercenary';
         var expandedUid = '', renderRaf = 0, original = null, lastSkillRosterSig = '', lastTeamSig = '', playerRef = null, skillRepairCount = 0;
-        var guildOverlay = null, guildContent = null, guildLastSig = '';
+        var guildOverlay = null, guildContent = null, guildLastSig = '', customPetOverlay = null;
         var openSkillSlot = localStorage.getItem(SKILL_OPEN_KEY) || '';
         var reserveOpen = localStorage.getItem(PET_GROUP_KEY) === 'true';
         var labels = { mercenary:'傭兵', pet:'寵物', summon:'召喚物' };
@@ -3843,6 +4281,83 @@
         }
         function pct(cur, max) { return Math.max(0, Math.min(100, Math.floor(Number(cur || 0) / Math.max(1, Number(max || 1)) * 100))); }
         function petName(p) { try { return typeof petDisplayName === 'function' ? petDisplayName(p) : (p.form || '寵物'); } catch (e) { return p.form || '寵物'; } }
+        function customPetForms() {
+            try {
+                if (typeof PET_BOOK === 'undefined' || !PET_BOOK) return [];
+                return Object.keys(PET_BOOK).sort(function (a, b) {
+                    var ad = PET_BOOK[a] || {}, bd = PET_BOOK[b] || {};
+                    return Number(ad.tier || 0) - Number(bd.tier || 0) || a.localeCompare(b, 'zh-Hant');
+                });
+            } catch (e) { return []; }
+        }
+        function closeCustomPet(reason) {
+            if (AFKRuntime.layers.close('custom-pet', reason || 'button')) return;
+            if (customPetOverlay && customPetOverlay.parentNode) customPetOverlay.parentNode.removeChild(customPetOverlay);
+            customPetOverlay = null;
+        }
+        function createCustomPet(dialog) {
+            var form = dialog.querySelector('[data-afk-custom-pet-form]').value;
+            var def = null; try { def = PET_BOOK[form]; } catch (e) {}
+            if (!def || typeof petNewInstance !== 'function' || typeof petRoster !== 'function') { alert('寵物資料尚未載入完成，請稍後再試。'); return; }
+            var minimum = Math.max(1, Number(def.lv0 || 1));
+            var level = Math.max(minimum, Math.min(100, Math.floor(Number(dialog.querySelector('[data-afk-custom-pet-level]').value) || minimum)));
+            var name = String(dialog.querySelector('[data-afk-custom-pet-name]').value || '').trim().slice(0, 20);
+            var list = petRoster();
+            if (!Array.isArray(list)) { alert('無法讀取寵物保管資料。'); return; }
+            if (list.length >= PET_ROSTER_LIMIT) { alert('寵物保管已滿（上限 ' + PET_ROSTER_LIMIT + ' 隻）。請先放生一隻寵物。'); return; }
+            var created = petNewInstance(form, level);
+            if (!created) { alert('無法建立這個寵物種類。'); return; }
+            created.name = name;
+            list.push(created);
+            try { if (typeof petMarkDirty === 'function') petMarkDirty(); } catch (e) {}
+            var saved = false;
+            try { saved = typeof petRosterSave === 'function' ? !!petRosterSave() : (typeof saveGame === 'function' && !!saveGame()); } catch (e) { console.warn('[AFK] 自設寵物儲存失敗', e); }
+            if (!saved) {
+                try {
+                    var current = petRoster(), index = current.findIndex(function (pet) { return pet && String(pet.uid) === String(created.uid); });
+                    if (index >= 0) current.splice(index, 1);
+                    if (typeof petMarkDirty === 'function') petMarkDirty();
+                } catch (e) {}
+                alert('自設寵物儲存失敗，本次新增已取消。');
+                return;
+            }
+            closeCustomPet('created');
+            expandedUid = String(created.uid || '');
+            lastTeamSig = '';
+            try { if (typeof renderTabs === 'function') renderTabs(); } catch (e) {}
+            try { if (typeof logSys === 'function') logSys('<span class="text-green-300 font-bold">🐾 已新增自設寵物：' + esc(petName(created)) + '（Lv.' + Number(created.lv || level) + '）。</span>'); } catch (e) {}
+            queue();
+        }
+        function openCustomPet() {
+            var forms = customPetForms();
+            if (!forms.length || typeof petNewInstance !== 'function') { alert('寵物資料尚未載入完成，請稍後再試。'); return; }
+            try {
+                if (typeof petRoster === 'function' && petRoster().filter(Boolean).length >= PET_ROSTER_LIMIT) {
+                    alert('寵物保管已滿（上限 ' + PET_ROSTER_LIMIT + ' 隻）。請先放生一隻寵物。');
+                    lastTeamSig = ''; queue(); return;
+                }
+            } catch (e) {}
+            closeCustomPet('replace');
+            var options = forms.map(function (form) {
+                var def = PET_BOOK[form] || {}, tier = Number(def.tier || 0), group = tier === 2 ? '特殊' : (tier === 1 ? '高等' : '一般');
+                return '<option value="' + esc(form) + '">' + group + '｜' + esc(form) + '</option>';
+            }).join('');
+            customPetOverlay = document.createElement('div'); customPetOverlay.id = 'afk-custom-pet-overlay';
+            var dialog = document.createElement('section'); dialog.className = 'afk-custom-pet-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true');
+            dialog.innerHTML = '<header><div><strong>🐾 新增自設寵物</strong><small>建立後會先放入共用寵物保管，再由隊伍面板選擇出戰。</small></div><button type="button" data-afk-custom-pet-close aria-label="關閉">×</button></header><div class="afk-custom-pet-fields"><label><span>寵物種類</span><select data-afk-custom-pet-form>' + options + '</select></label><label><span>自訂名稱</span><input type="text" maxlength="20" data-afk-custom-pet-name placeholder="可留空，顯示原本種類名稱"></label><label><span>初始等級</span><input type="number" min="1" max="100" data-afk-custom-pet-level value="5"><small>會依寵物原生能力成長表建立 HP／MP。</small></label></div><div class="afk-custom-pet-actions"><button type="button" data-afk-custom-pet-cancel>取消</button><button type="button" class="primary" data-afk-custom-pet-save>新增到保管處</button></div>';
+            customPetOverlay.appendChild(dialog); document.body.appendChild(customPetOverlay);
+            var formSelect = dialog.querySelector('[data-afk-custom-pet-form]'), levelInput = dialog.querySelector('[data-afk-custom-pet-level]');
+            function syncLevelMinimum() {
+                var def = PET_BOOK[formSelect.value] || {}, minimum = Math.max(1, Number(def.lv0 || 1));
+                levelInput.min = String(minimum);
+                if (Number(levelInput.value) < minimum) levelInput.value = String(minimum);
+            }
+            formSelect.onchange = syncLevelMinimum; syncLevelMinimum();
+            dialog.querySelector('[data-afk-custom-pet-close]').onclick = function () { closeCustomPet('button'); };
+            dialog.querySelector('[data-afk-custom-pet-cancel]').onclick = function () { closeCustomPet('cancel'); };
+            dialog.querySelector('[data-afk-custom-pet-save]').onclick = function () { createCustomPet(dialog); };
+            AFKRuntime.layers.open('custom-pet', { element:customPetOverlay, content:dialog, position:false, onClose:function () { if (customPetOverlay && customPetOverlay.parentNode) customPetOverlay.parentNode.removeChild(customPetOverlay); customPetOverlay = null; } });
+        }
         function collect() {
             var allies = [], pets = [], summons = [], summonConfigured = false;
             try { allies = player && Array.isArray(player.allies) ? player.allies.filter(Boolean) : []; } catch (e) {}
@@ -4113,8 +4628,10 @@
                 var otherOut = reserve.filter(function (x) { return x.outSlot != null; }).length, stored = reserve.length - otherOut;
                 var deployedHtml = deployed.length ? deployed.map(function (x) { return rowHtml('pet', x); }).join('') : '<div class="afk-squad-empty compact">目前沒有出戰寵物。</div>';
                 var reserveHtml = reserve.map(function (x) { return rowHtml('pet', x); }).join('');
+                var petFull = list.length >= PET_ROSTER_LIMIT;
+                var customCreate = '<div class="afk-pet-create-empty' + (petFull ? ' full' : '') + '"><span><b>🐾 新增自設寵物</b><small>目前 ' + list.length + '／' + PET_ROSTER_LIMIT + ' 隻・' + (petFull ? '已達上限，放生一隻後即可再次新增。' : '可建立自訂種類、名稱與初始等級。') + '</small></span><button type="button" data-afk-pet-create' + (petFull ? ' disabled aria-disabled="true" title="寵物已達上限，請先放生一隻"' : '') + '>＋ 新增自設寵物</button></div>';
                 content = '<section class="afk-pet-active-group"><div class="afk-pet-group-label"><b>⚔️ 出戰寵物</b><small>' + deployed.length + ' 隻</small></div>' + deployedHtml + '</section>' +
-                    (reserve.length ? '<section class="afk-pet-reserve-group"><button type="button" class="afk-pet-reserve-toggle" data-afk-pet-reserve-toggle aria-expanded="' + (reserveOpen ? 'true' : 'false') + '"><span><b>📦 其餘寵物</b><small>其他角色 ' + otherOut + '・保管中 ' + stored + '</small></span><em>' + reserve.length + ' 隻 ' + (reserveOpen ? '▾' : '▸') + '</em></button><div class="afk-pet-reserve-body"' + (reserveOpen ? '' : ' hidden') + '>' + reserveHtml + '</div></section>' : '');
+                    (reserve.length ? '<section class="afk-pet-reserve-group"><button type="button" class="afk-pet-reserve-toggle" data-afk-pet-reserve-toggle aria-expanded="' + (reserveOpen ? 'true' : 'false') + '"><span><b>📦 其餘寵物</b><small>其他角色 ' + otherOut + '・保管中 ' + stored + '</small></span><em>' + reserve.length + ' 隻 ' + (reserveOpen ? '▾' : '▸') + '</em></button><div class="afk-pet-reserve-body"' + (reserveOpen ? '' : ' hidden') + '>' + reserveHtml + '</div></section>' : '') + customCreate;
             }
             var guildButton = activeType === 'mercenary' ? '<button type="button" data-afk-merc-guild>🏛️ 傭兵公會</button>' : '';
             root.innerHTML = '<div class="afk-squad-typebar">' + tabCount('mercenary', data.mercenary) + tabCount('pet', data.pet) + tabCount('summon', data.summon) + '</div><div class="afk-squad-type-summary"><span>' + icons[activeType] + ' ' + labels[activeType] + '</span><span class="afk-squad-summary-tools"><small>共 ' + list.length + '・出戰 ' + active + (down ? '・倒地 ' + down : '') + '</small>' + guildButton + '</span></div><div class="afk-squad-list' + (activeType === 'pet' ? ' pet-mode' : '') + '">' + content + '</div>';
@@ -4216,6 +4733,8 @@
         document.addEventListener('click', function (e) {
             var guild = e.target.closest && e.target.closest('[data-afk-merc-guild]');
             if (guild) { e.preventDefault(); e.stopPropagation(); openGuild(); return; }
+            var createPet = e.target.closest && e.target.closest('[data-afk-pet-create]');
+            if (createPet) { e.preventDefault(); e.stopPropagation(); openCustomPet(); return; }
             var reserveToggle = e.target.closest && e.target.closest('[data-afk-pet-reserve-toggle]');
             if (reserveToggle) {
                 e.preventDefault(); e.stopPropagation();
@@ -4273,6 +4792,7 @@
         style.textContent = '#squad-tab-team{gap:6px!important}.afk-squad-typebar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px;position:sticky;top:0;z-index:3;padding:2px 0 5px;background:#111827}.afk-squad-typebar button{min-width:0;display:flex;align-items:center;justify-content:center;gap:3px;padding:5px 3px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#cbd5e1;font:700 10px system-ui;cursor:pointer}.afk-squad-typebar button.active{border-color:#f59e0b;background:linear-gradient(135deg,#92400e,#b45309);color:#fff}.afk-squad-typebar button b{min-width:16px;padding:1px 4px;border-radius:8px;background:#0f172a;color:#f8fafc;font-size:9px}.afk-squad-typebar button em{color:#fca5a5;font:700 8px system-ui}.afk-squad-type-summary{display:flex;align-items:center;justify-content:space-between;padding:3px 2px;color:#fcd34d;font:800 11px system-ui}.afk-squad-type-summary small{color:#94a3b8;font-size:9px}.afk-squad-list{display:flex;flex-direction:column;gap:4px}.afk-squad-row{overflow:hidden;border:1px solid #475569;border-radius:8px;background:rgba(30,41,59,.82)}.afk-squad-row.pet{border-color:#0f766e}.afk-squad-row.summon{border-color:#6d28d9}.afk-squad-row.downed{border-color:#991b1b;filter:saturate(.75)}.afk-squad-summary{width:100%;display:grid;grid-template-columns:28px minmax(0,1fr) 72px 12px;align-items:center;gap:5px;padding:5px 6px;border:0;background:transparent;color:#e2e8f0;text-align:left;cursor:pointer}.afk-squad-summary img,.afk-squad-avatar{width:26px;height:24px;display:flex;align-items:center;justify-content:center;object-fit:contain;image-rendering:pixelated;font-size:16px}.afk-squad-name{min-width:0;display:flex;flex-direction:column}.afk-squad-name b,.afk-squad-name small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.afk-squad-name b{color:#fde68a;font-size:11px}.afk-squad-row.pet .afk-squad-name b{color:#6ee7b7}.afk-squad-row.summon .afk-squad-name b{color:#c4b5fd}.afk-squad-name small{color:#94a3b8;font-size:9px}.afk-squad-mini{display:flex;flex-direction:column;gap:1px;text-align:center}.afk-squad-mini i,.afk-squad-vital i{position:relative;overflow:hidden;height:7px;border-radius:5px;background:#0f172a}.afk-squad-mini i b,.afk-squad-vital i b{display:block;height:100%;background:linear-gradient(90deg,#b91c1c,#f87171)}.afk-squad-mini small{color:#cbd5e1;font-size:8px}.afk-squad-arrow{color:#94a3b8}.afk-squad-detail{display:flex;flex-direction:column;gap:4px;padding:4px 7px 7px;border-top:1px solid rgba(71,85,105,.65)}.afk-squad-vital{display:grid;grid-template-columns:28px minmax(0,1fr);align-items:center;gap:4px;color:#94a3b8;font:700 9px system-ui}.afk-squad-vital i{height:13px}.afk-squad-vital i b[data-afk-bar="mp"]{background:linear-gradient(90deg,#1d4ed8,#60a5fa)}.afk-squad-vital i b[data-afk-bar="exp"]{background:linear-gradient(90deg,#ca8a04,#fde047)}.afk-squad-vital em{position:absolute;inset:0;color:#fff;text-align:center;font:700 8px/13px system-ui}.afk-squad-actions{display:flex;gap:4px;align-items:center}.afk-squad-actions button,.afk-squad-switch{flex:1;padding:4px 6px;border:1px solid #0f766e;border-radius:5px;background:#065f46;color:#d1fae5;font:800 9px system-ui;cursor:pointer}.afk-squad-actions span{color:#fca5a5;font-size:9px}.afk-squad-switch.summon{border-color:#7c3aed;background:#4c1d95;color:#ede9fe}.afk-squad-threshold,.afk-squad-note{color:#cbd5e1;font-size:9px}.afk-squad-threshold input{width:42px;padding:2px;border:1px solid #475569;border-radius:4px;background:#0f172a;color:#fff;text-align:center}.afk-squad-empty{padding:18px 8px;border:1px dashed #475569;border-radius:8px;color:#64748b;text-align:center;font-size:10px}@media(max-width:900px){.afk-squad-summary{grid-template-columns:24px minmax(0,1fr) 62px 10px}.afk-squad-typebar button{font-size:9px}}';
         style.textContent += '.afk-squad-owner{padding:5px 6px;border:1px solid #0369a1;border-radius:6px;background:#0c4a6e;color:#bae6fd;font:700 8px/1.4 system-ui}.afk-pet-manage{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.afk-pet-manage button{min-width:0;padding:5px 3px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#cbd5e1;font:800 8px system-ui;cursor:pointer}.afk-pet-manage .gear.equipped{border-color:#f59e0b;color:#fde68a;background:#713f12}.afk-pet-manage .deploy{border-color:#10b981;background:#065f46;color:#d1fae5}.afk-pet-manage .evolve{border-color:#eab308;background:#854d0e;color:#fef9c3}.afk-pet-manage .lock.active{border-color:#f59e0b;background:#78350f;color:#fef3c7}.afk-pet-manage .release{border-color:#ef4444;background:#7f1d1d;color:#fecaca}.afk-squad-row.pet:not(.downed) .afk-squad-summary:hover{background:rgba(15,118,110,.15)}';
         style.textContent += '.afk-pet-active-group,.afk-pet-reserve-group{display:flex;flex-direction:column;gap:4px}.afk-pet-active-group{overflow:hidden;padding:5px;border:1px solid rgba(16,185,129,.55);border-radius:9px;background:rgba(6,78,59,.16);overflow-anchor:none}.afk-pet-group-label{display:flex;align-items:center;justify-content:space-between;padding:1px 3px;color:#6ee7b7;font:800 9px system-ui}.afk-pet-group-label small{color:#94a3b8;font-size:8px}.afk-squad-empty.compact{padding:9px}.afk-pet-reserve-group{overflow:hidden;border:1px solid #334155;border-radius:9px;background:rgba(15,23,42,.55);overflow-anchor:none}.afk-pet-reserve-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 8px;border:0;background:linear-gradient(135deg,#1e293b,#172033);color:#e2e8f0;text-align:left;cursor:pointer}.afk-pet-reserve-toggle:hover{background:#26354a}.afk-pet-reserve-toggle>span{display:flex;flex-direction:column;gap:2px}.afk-pet-reserve-toggle b{color:#cbd5e1;font-size:10px}.afk-pet-reserve-toggle small{color:#94a3b8;font-size:8px}.afk-pet-reserve-toggle em{color:#fcd34d;font:800 8px system-ui;white-space:nowrap}.afk-pet-reserve-body{display:flex;flex-direction:column;gap:4px;padding:5px;border-top:1px solid #334155}.afk-pet-reserve-body[hidden]{display:none!important}';
+        style.textContent += '.afk-pet-create-empty{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px dashed #14b8a6;border-radius:9px;background:linear-gradient(135deg,rgba(6,78,59,.42),rgba(8,47,73,.48))}.afk-pet-create-empty>span{min-width:0;display:flex;flex-direction:column;gap:2px}.afk-pet-create-empty b{color:#99f6e4;font-size:10px}.afk-pet-create-empty small{color:#94a3b8;font-size:8px}.afk-pet-create-empty button{flex:none;min-height:31px;padding:5px 9px;border:1px solid #10b981;border-radius:6px;background:#065f46;color:#d1fae5;font:900 9px system-ui;cursor:pointer}.afk-pet-create-empty.full{border-color:#64748b;background:#172033}.afk-pet-create-empty.full b{color:#cbd5e1}.afk-pet-create-empty button:disabled{border-color:#475569;background:#334155;color:#94a3b8;cursor:not-allowed;filter:saturate(.35);opacity:.68}#afk-custom-pet-overlay{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:12px;background:rgba(2,6,23,.8)}.afk-custom-pet-dialog{box-sizing:border-box;width:min(520px,100%);max-height:calc(100dvh - 24px);overflow:auto;padding:12px;border:1px solid #14b8a6;border-radius:13px;background:#0f172a;color:#e2e8f0;box-shadow:0 22px 70px rgba(0,0,0,.82)}.afk-custom-pet-dialog header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding-bottom:9px;border-bottom:1px solid #334155}.afk-custom-pet-dialog header>div{display:flex;flex-direction:column;gap:2px}.afk-custom-pet-dialog header strong{color:#99f6e4}.afk-custom-pet-dialog header small{color:#94a3b8;font-size:9px}.afk-custom-pet-dialog header button{width:30px;height:30px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#fff;font-size:18px}.afk-custom-pet-fields{display:grid;gap:8px;padding:10px 0}.afk-custom-pet-fields label{display:grid;grid-template-columns:92px minmax(0,1fr);align-items:center;gap:7px;color:#cbd5e1;font-size:10px;font-weight:800}.afk-custom-pet-fields input,.afk-custom-pet-fields select{box-sizing:border-box;width:100%;min-height:37px;padding:6px 8px;border:1px solid #475569;border-radius:7px;background:#111827;color:#f8fafc}.afk-custom-pet-fields small{grid-column:2;color:#94a3b8;font-size:8px;font-weight:500}.afk-custom-pet-actions{display:grid;grid-template-columns:1fr 1fr;gap:7px}.afk-custom-pet-actions button{min-height:38px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#e2e8f0;font-weight:900}.afk-custom-pet-actions button.primary{border-color:#10b981;background:#065f46;color:#d1fae5}@media(max-width:760px){body.m-mobile .afk-pet-create-empty{align-items:stretch;flex-direction:column;padding:10px}body.m-mobile .afk-pet-create-empty b{font-size:12px}body.m-mobile .afk-pet-create-empty small{font-size:9px}body.m-mobile .afk-pet-create-empty button{min-height:40px;font-size:11px}.afk-custom-pet-dialog{padding:11px}.afk-custom-pet-fields label{grid-template-columns:1fr;font-size:12px}.afk-custom-pet-fields small{grid-column:1}.afk-custom-pet-fields input,.afk-custom-pet-fields select{min-height:44px;font-size:13px}.afk-custom-pet-actions button{min-height:44px}}';
         style.textContent += '.afk-squad-summary{grid-template-columns:28px minmax(0,1fr) minmax(82px,105px) 12px}.afk-squad-metrics{min-width:0;display:flex;flex-direction:column;gap:3px}.afk-squad-mini.mp i b{background:linear-gradient(90deg,#1d4ed8,#60a5fa)}.afk-squad-mini.exp i b{background:linear-gradient(90deg,#ca8a04,#fde047)}.afk-squad-mini.empty i{background:repeating-linear-gradient(135deg,#172033,#172033 4px,#26354a 4px,#26354a 8px)}.afk-squad-mini.empty i b{display:none}.afk-squad-threshold{box-sizing:border-box;width:100%;display:flex;align-items:center;justify-content:center;gap:5px;padding:6px 8px;border:1px solid #0e7490;border-radius:7px;background:#083344;white-space:nowrap}.afk-squad-threshold input{box-sizing:border-box;flex:0 0 52px;width:52px}.afk-pet-active-group,.afk-pet-reserve-group,.afk-pet-reserve-body{position:static!important;inset:auto!important;width:100%;min-width:0;max-width:none;transform:none!important}.afk-squad-list.pet-mode{width:100%;min-width:0}';
         style.textContent += '.afk-pet-summary-threshold{margin:0 6px 6px;justify-content:space-between;padding:5px 7px;border-color:#0f766e;background:linear-gradient(90deg,rgba(6,78,59,.76),rgba(8,51,68,.82));color:#d1fae5}.afk-pet-summary-threshold>span{display:flex;align-items:center;gap:5px}.afk-pet-summary-threshold>span:first-child{color:#6ee7b7;font-weight:900}.afk-pet-summary-threshold input{height:28px;border-color:#14b8a6;background:#0f172a;color:#f0fdfa;font-weight:900}@media(max-width:760px){body.m-mobile .afk-pet-summary-threshold{min-height:42px;margin:0 8px 8px;padding:6px 9px;font-size:11px}body.m-mobile .afk-pet-summary-threshold input{height:34px;font-size:14px}}';
         style.textContent += '.afk-pet-summary-threshold{box-sizing:border-box!important;min-height:0!important;display:grid!important;grid-template-columns:minmax(0,1fr) auto!important;gap:4px!important;margin:1px 5px 4px!important;padding:2px 5px!important;border-radius:5px!important;font-size:8px!important;line-height:20px!important}.afk-pet-summary-threshold>span{min-width:0!important;gap:3px!important;white-space:nowrap!important}.afk-pet-summary-threshold>span:first-child{overflow:hidden!important;text-overflow:ellipsis!important}.afk-pet-summary-threshold input{box-sizing:border-box!important;width:34px!important;height:20px!important;min-height:20px!important;padding:0 2px!important;font-size:9px!important;line-height:18px!important}@media(max-width:760px){body.m-mobile .afk-pet-summary-threshold{min-height:30px!important;margin:2px 7px 5px!important;padding:3px 6px!important;font-size:10px!important;line-height:24px!important}body.m-mobile .afk-pet-summary-threshold input{width:42px!important;height:26px!important;min-height:26px!important;font-size:12px!important}}';
@@ -4286,6 +4806,7 @@
         style.textContent += '@media(min-width:761px){#squad-tab-skill{gap:7px!important;padding:6px!important}#squad-tab-skill>.afk-squad-skill-card{border-color:#3b4d66!important;border-radius:9px!important;background:linear-gradient(145deg,rgba(15,23,42,.96),rgba(10,18,34,.94))!important;box-shadow:0 3px 12px rgba(0,0,0,.2)!important}#squad-tab-skill .afk-squad-skill-head{min-height:44px!important;padding:8px 10px!important;border-left:3px solid transparent!important;background:linear-gradient(135deg,#1d2a3d,#162034)!important}#squad-tab-skill .afk-squad-skill-head[aria-expanded="true"]{border-left-color:#38bdf8!important;background:linear-gradient(135deg,#17364a,#172554)!important}#squad-tab-skill .afk-squad-skill-body{grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr))!important;gap:7px!important;padding:8px!important;background:linear-gradient(180deg,rgba(15,23,42,.78),rgba(8,15,29,.92))!important}#squad-tab-skill .afk-squad-skill-field{padding:8px!important;border-color:rgba(71,85,105,.62)!important;background:#101a2d!important}#squad-tab-skill .afk-squad-skill-field.skill-title-row,#squad-tab-skill .afk-squad-skill-field.convert-row,#squad-tab-skill .afk-squad-skill-field.limit-row,#squad-tab-skill .afk-squad-skill-field.auto-row{grid-column:1/-1!important}#squad-tab-skill .afk-squad-skill-field.skill-title-row{min-height:34px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;padding:6px 8px!important;border-color:#475569!important;background:linear-gradient(90deg,#172033,#111827)!important;color:#fde68a!important;font-size:11px!important;font-weight:900!important}#squad-tab-skill .afk-squad-skill-field.skill-title-row small,#squad-tab-skill .afk-squad-skill-field.skill-title-row span:last-child{color:#94a3b8!important;font-size:8px!important}#squad-tab-skill .afk-squad-skill-field.select-row{grid-template-columns:minmax(66px,auto) minmax(0,1fr) minmax(62px,auto)!important;gap:6px!important}#squad-tab-skill .afk-squad-skill-field.select-row>span:first-child{color:#67e8f9!important;font-size:9px!important;font-weight:900!important;white-space:nowrap!important}#squad-tab-skill .afk-squad-skill-field.heal-row>span:first-child{color:#6ee7b7!important}#squad-tab-skill .afk-squad-skill-field.convert-row>span:first-child{color:#d8b4fe!important}#squad-tab-skill .afk-squad-skill-field.select-row>select{grid-column:2!important;min-height:34px!important;border-color:#3b526f!important;border-radius:6px!important;background:#0d1729!important;font-size:10px!important}#squad-tab-skill .afk-squad-skill-field.select-row>span:not(:first-child){min-height:34px!important;grid-column:3!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:4px 6px!important;border:1px solid #334155!important;border-radius:6px!important;background:#111c30!important;font-size:8px!important;white-space:nowrap!important}#squad-tab-skill .afk-squad-skill-field.convert-row>select{grid-column:2/4!important}#squad-tab-skill .afk-squad-skill-field.limit-row{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))!important}#squad-tab-skill .afk-squad-skill-field.limit-row>span{min-height:34px!important;border:1px solid #334155!important;border-radius:6px!important;background:#111c30!important;font-size:8px!important}#squad-tab-skill .afk-squad-skill-field.auto-row>div{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(76px,1fr))!important;gap:5px!important}#squad-tab-skill .afk-squad-skill-field.auto-row label{box-sizing:border-box!important;min-width:0!important;min-height:31px!important;display:flex!important;align-items:center!important;gap:4px!important;margin:0!important;padding:4px 6px!important;border:1px solid #334155!important;border-radius:6px!important;background:#111c30!important;color:#cbd5e1!important;font-size:8px!important;line-height:1.2!important}#squad-tab-skill .afk-squad-skill-field.auto-row label:has(input:checked){border-color:#0e7490!important;background:#0b2b3e!important;color:#cffafe!important}#squad-tab-skill .afk-squad-skill-field.auto-row input[type="checkbox"]{flex:0 0 auto!important;width:13px!important;height:13px!important;min-height:0!important;margin:0!important;accent-color:#06b6d4!important}}';
         style.textContent += '#squad-tab-skill>.afk-squad-skill-card{max-height:none!important}#squad-tab-skill .afk-squad-skill-body{max-height:none!important;overflow:visible!important}#squad-tab-skill .afk-squad-skill-body[hidden]{display:none!important}@media(max-width:760px){body.m-mobile.mview-config .m-col-left{overflow-y:auto!important;-webkit-overflow-scrolling:touch!important}body.m-mobile.mview-config #squad-tab-skill:not(.hidden){display:flex!important;max-height:none!important;overflow:visible!important;padding-bottom:calc(82px + env(safe-area-inset-bottom,0px))!important}body.m-mobile.mview-config #squad-tab-skill.hidden{display:none!important}body.m-mobile #squad-tab-skill>.afk-squad-skill-card{max-height:none!important;overflow:visible!important}body.m-mobile #squad-tab-skill .afk-squad-skill-body:not([hidden]){display:flex!important;max-height:none!important;overflow:visible!important}}';
         style.textContent += '.afk-pet-summary-threshold{min-height:30px!important;grid-template-columns:minmax(0,1fr) auto!important;align-items:center!important;margin:2px 5px 5px!important;padding:4px 6px!important;border:1px solid rgba(20,184,166,.52)!important;border-radius:7px!important;background:linear-gradient(90deg,rgba(6,78,59,.55),rgba(8,47,73,.58))!important;line-height:1.2!important}.afk-pet-pot-label{display:grid!important;grid-template-columns:auto minmax(0,1fr)!important;grid-template-rows:auto auto!important;column-gap:5px!important;row-gap:0!important;align-items:center!important}.afk-pet-pot-label i{grid-row:1/3!important;font-style:normal!important}.afk-pet-pot-label b{overflow:hidden!important;color:#99f6e4!important;font-size:9px!important;text-overflow:ellipsis!important}.afk-pet-pot-label small{overflow:hidden!important;color:#5eead4!important;font-size:7px!important;font-weight:600!important;text-overflow:ellipsis!important}.afk-pet-pot-control{display:flex!important;align-items:center!important;gap:4px!important;color:#ccfbf1!important;white-space:nowrap!important}.afk-pet-pot-control em{font-style:normal!important;font-size:8px!important}.afk-pet-pot-control input{width:38px!important;height:24px!important;min-height:24px!important;border-radius:5px!important;font-size:10px!important}@media(min-width:761px){#squad-tab-skill:not(.hidden){max-height:calc(100vh - 255px)!important;overflow-x:hidden!important;overflow-y:auto!important;overscroll-behavior:contain!important;padding-right:7px!important;padding-bottom:18px!important;scrollbar-width:thin!important;scrollbar-color:#475569 #0f172a!important}#squad-tab-skill .afk-squad-skill-card{flex:0 0 auto!important}#squad-tab-skill .afk-squad-skill-body:not([hidden]){max-height:none!important;overflow:visible!important}}@media(max-width:760px){body.m-mobile .afk-pet-summary-threshold{min-height:38px!important;margin:3px 8px 6px!important;padding:5px 8px!important}.afk-pet-pot-label b{font-size:11px!important}.afk-pet-pot-label small{font-size:8px!important}.afk-pet-pot-control em{font-size:10px!important}.afk-pet-pot-control input{width:46px!important;height:32px!important;min-height:32px!important;font-size:13px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-card{scroll-margin-top:8px!important;scroll-margin-bottom:calc(86px + env(safe-area-inset-bottom,0px))!important}}';
+        style.textContent += '@media(max-width:760px){body.m-mobile.mview-config #squad-tab-team{gap:4px!important;padding:3px 5px calc(72px + env(safe-area-inset-bottom,0px))!important}body.m-mobile.mview-config #squad-tab-team>.afk-squad-typebar{gap:3px!important;padding:3px!important}body.m-mobile.mview-config #squad-tab-team>.afk-squad-typebar>button{min-height:36px!important;padding:5px 3px!important;font-size:10px!important}body.m-mobile.mview-config #squad-tab-team>.afk-squad-type-summary{min-height:30px!important;padding:2px 4px!important;font-size:10px!important}body.m-mobile.mview-config #squad-tab-team>.afk-squad-list{gap:4px!important;padding:0 2px 5px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-summary{grid-template-columns:24px minmax(0,1fr) 76px 10px!important;gap:4px!important;min-height:44px!important;padding:5px 6px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-summary img,body.m-mobile.mview-config #squad-tab-team .afk-squad-avatar{width:24px!important;height:24px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-name b{font-size:11px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-name small{font-size:8px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-mini small{font-size:8px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-detail{gap:4px!important;padding:5px 6px 6px!important}body.m-mobile.mview-config #squad-tab-team .afk-pet-manage{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}body.m-mobile.mview-config #squad-tab-team .afk-pet-manage button{min-height:34px!important;padding:4px 2px!important;font-size:9px!important}body.m-mobile.mview-config #squad-tab-team .afk-squad-threshold{min-height:34px!important;font-size:10px!important}body.m-mobile.mview-config #squad-tab-skill:not(.hidden){gap:4px!important;padding:3px 5px calc(72px + env(safe-area-inset-bottom,0px))!important}body.m-mobile #squad-tab-skill>.afk-squad-skill-card{border-radius:8px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-head{box-sizing:border-box!important;min-height:44px!important;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr) 12px!important;gap:5px!important;padding:6px 8px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-head b{font-size:11px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-head small{font-size:8px!important;line-height:1.2!important}body.m-mobile #squad-tab-skill .afk-squad-skill-body:not([hidden]){display:flex!important;flex-direction:column!important;gap:0!important;padding:1px 8px 6px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field{padding:5px 0!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.skill-title-row{min-height:28px!important;padding:4px 1px!important;font-size:10px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.skill-title-row small,body.m-mobile #squad-tab-skill .afk-squad-skill-field.skill-title-row span:last-child{font-size:8px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row{display:grid!important;grid-template-columns:64px minmax(0,1fr) 60px!important;gap:4px!important;padding:5px 0!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row>span:first-child{grid-column:1!important;font-size:9px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row>select{grid-column:2!important;min-height:34px!important;height:34px!important;padding:4px 6px!important;font-size:11px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row>span:not(:first-child){box-sizing:border-box!important;width:auto!important;min-width:60px!important;min-height:34px!important;height:34px!important;grid-column:3!important;padding:3px 4px!important;font-size:9px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row input[type="number"]{width:34px!important;min-height:28px!important;height:28px!important;padding:1px!important;font-size:12px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.convert-row>select{grid-column:2/4!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.limit-row{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:4px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.limit-row>span{min-height:34px!important;height:34px!important;padding:3px 5px!important;font-size:9px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.limit-row input[type="number"]{width:38px!important;min-height:28px!important;height:28px!important;padding:1px!important;font-size:12px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.auto-row{gap:4px!important;padding:5px 0 1px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.auto-row>div{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:4px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.auto-row label{min-height:32px!important;padding:4px 5px!important;font-size:8px!important}}@media(max-width:420px){body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row{grid-template-columns:58px minmax(0,1fr) 56px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.select-row>span:not(:first-child){min-width:56px!important}body.m-mobile #squad-tab-skill .afk-squad-skill-field.auto-row>div{grid-template-columns:repeat(2,minmax(0,1fr))!important}}';
         document.head.appendChild(style);
         AFKRuntime.when('squad:lifecycle', function () { return typeof window.renderSquadPanel === 'function' && document.getElementById('squad-tab-team'); }, install);
     }
@@ -4663,26 +5184,36 @@
     //  🎮 四種遊戲模式切換與模式收藏快照
     // ============================================================
     function initModeSwitcherModule() {
+        var TAB_KEY = 'afk_mode_panel_tab';
         var MODES = [
             { id:'normal', name:'一般', icon:'🌿', classic:false, traditional:false },
             { id:'classic', name:'經典', icon:'⚔️', classic:true, traditional:false },
             { id:'traditional', name:'傳統', icon:'🏛️', classic:false, traditional:true },
             { id:'classic_traditional', name:'經典＋傳統', icon:'⚔️🏛️', classic:true, traditional:true }
         ];
-        var chip = null, overlay = null;
+        var chip = null, overlay = null, slotCache = {}, renderGeneration = 0;
         function modeIdOf(p) { return p && p.classicMode ? (p.traditionalMode ? 'classic_traditional' : 'classic') : (p && p.traditionalMode ? 'traditional' : 'normal'); }
         function modeById(id) { return MODES.filter(function (m) { return m.id === id; })[0] || MODES[0]; }
         function slotNo() { try { return Number(currentSlot) || 1; } catch (e) { return 1; } }
         function profileKey(slot, mode) { return 'afk_mode_profile_' + slot + '_' + mode; }
-        function snapshot(slot, mode) {
-            if (!player) return;
-            var data = { cardDex:player.cardDex || {}, equipDex:player.equipDex || {}, miscDex:player.miscDex || {}, relicDex:player.relicDex || {} };
+        function profileData(source) {
+            source = source || {};
+            return { cardDex:source.cardDex || {}, equipDex:source.equipDex || {}, miscDex:source.miscDex || {}, relicDex:source.relicDex || {} };
+        }
+        function snapshotProfile(slot, mode, source) {
+            var data = profileData(source);
             try { localStorage.setItem(profileKey(slot, mode), JSON.stringify(data)); } catch (e) {}
         }
-        function restore(slot, mode) {
+        function restoreProfile(slot, mode, target) {
             var data = null; try { data = JSON.parse(localStorage.getItem(profileKey(slot, mode)) || 'null'); } catch (e) {}
-            player.cardDex = Object.assign({}, data && data.cardDex || {}); player.cardDexV = 2;
-            player.equipDex = Object.assign({}, data && data.equipDex || {}); player.miscDex = Object.assign({}, data && data.miscDex || {}); player.relicDex = Object.assign({}, data && data.relicDex || {});
+            target.cardDex = Object.assign({}, data && data.cardDex || {}); target.cardDexV = 2;
+            target.equipDex = Object.assign({}, data && data.equipDex || {}); target.miscDex = Object.assign({}, data && data.miscDex || {}); target.relicDex = Object.assign({}, data && data.relicDex || {});
+        }
+        function snapshot(slot, mode) {
+            if (player) snapshotProfile(slot, mode, player);
+        }
+        function restore(slot, mode) {
+            if (player) restoreProfile(slot, mode, player);
         }
         function syncChip() {
             if (!chip || typeof player === 'undefined' || !player) return;
@@ -4690,12 +5221,14 @@
             if (chip.textContent !== text) chip.textContent = text; if (chip.dataset.mode !== mode.id) chip.dataset.mode = mode.id; if (chip.title !== title) chip.title = title;
         }
         function close() {
+            renderGeneration++;
+            document.body.classList.remove('afk-mode-open');
             if (AFKRuntime.layers.close('mode-settings', 'button')) return;
             if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); overlay = null;
         }
         function suspendMode(focusSlot) {
             var dialog = overlay && overlay.querySelector('.afk-mode-dialog');
-            var view = { scrollTop:dialog ? dialog.scrollTop : 0, focusSlot:focusSlot == null ? '' : String(focusSlot) };
+            var view = { scrollTop:dialog ? dialog.scrollTop : 0, focusSlot:focusSlot == null ? '' : String(focusSlot), tab:dialog && dialog.dataset.afkModeTab || 'saves' };
             close(); return view;
         }
         function resumeMode(view) {
@@ -4746,7 +5279,62 @@
         function classBackupKey(slot) { return slotKey(slot) + '_class_bak'; }
         function rawSlot(slot) { try { return typeof _lzGet === 'function' ? _lzGet(slotKey(slot)) : null; } catch (e) { return null; } }
         function saveSlotRaw(slot, raw) { try { return typeof _lzSet === 'function' && _lzSet(slotKey(slot), raw); } catch (e) { return false; } }
-        function refreshSlots() { var host = overlay && overlay.querySelector('.afk-mode-slots'); if (host) renderSlots(host); }
+        function invalidateSlotCache(slot) {
+            if (slot == null) slotCache = {};
+            else delete slotCache[Number(slot)];
+        }
+        function slotRecord(slot) {
+            var raw = rawSlot(slot), cached = slotCache[slot];
+            if (cached && cached.raw === raw) return { raw:cached.raw, sum:cached.sum, hasBackup:cached.hasBackup, cached:true };
+            var sum = null, hasBackup = false;
+            try { sum = typeof slotSummary === 'function' ? slotSummary(slot) : null; } catch (e) {}
+            try { hasBackup = !!_lzGet(classBackupKey(slot)); } catch (e) {}
+            slotCache[slot] = { raw:raw, sum:sum, hasBackup:hasBackup };
+            return { raw:raw, sum:sum, hasBackup:hasBackup, cached:false };
+        }
+        function refreshSlots() {
+            var host = overlay && overlay.querySelector('.afk-mode-slots');
+            if (host) renderSlots(host);
+        }
+        function modeOptions(selected) {
+            return MODES.map(function (mode) {
+                return '<option value="' + mode.id + '"' + (mode.id === selected ? ' selected' : '') + '>' + mode.icon + ' ' + mode.name + '</option>';
+            }).join('');
+        }
+        function changeStoredSlotMode(slot, id) {
+            var raw = rawSlot(slot), un = raw ? _saveUnwrap(raw) : null;
+            if (!un || !un.payload || (un.signed && !un.ok)) throw new Error('角色存檔無法讀取或完整性校驗失敗');
+            var data = JSON.parse(un.payload), target = data && data.p, next = modeById(id);
+            if (!target || !target.cls) throw new Error('不是有效的角色存檔');
+            var oldId = modeIdOf(target);
+            if (oldId === next.id) return;
+            snapshotProfile(slot, oldId, target);
+            target.classicMode = next.classic; target.traditionalMode = next.traditional;
+            restoreProfile(slot, next.id, target);
+            if (!saveSlotRaw(slot, _saveWrap(JSON.stringify(data)))) throw new Error('寫入角色存檔失敗');
+            invalidateSlotCache(slot);
+        }
+        function confirmSlotMode(slot, id, sum) {
+            if (Number(slot) === slotNo()) { confirmMode(id); return; }
+            var current = slotMode(sum), next = modeById(id);
+            if (next.id === current.id) return;
+            var view = suspendMode(slot), resume = resumeOnce(view);
+            var run = function () {
+                try {
+                    changeStoredSlotMode(slot, next.id);
+                    alert('已將存檔 ' + slot + ' 的角色模式切換為「' + next.name + '」。');
+                    resumeMode(view);
+                } catch (e) {
+                    console.warn('[AFK] 切換指定存檔模式失敗', e);
+                    alert('切換角色模式失敗：' + e.message);
+                    resume();
+                }
+            };
+            var label = sum && (sum.name || sum.cls) || ('存檔 ' + slot);
+            var message = '將存檔 ' + slot + ' 的「' + label + '」從「' + current.name + '」切換為「' + next.name + '」。\n角色資料會保留，收藏與倉庫會改用目標模式資料。';
+            if (typeof gameConfirm === 'function') gameConfirm({ title:'切換存檔角色模式', message:message, okText:'確認切換', danger:true, onOk:run, onCancel:resume, onDismiss:resume });
+            else if (confirm(message)) run(); else resume();
+        }
         function downloadSlot(slot) {
             try {
                 if (slot === slotNo() && typeof saveGame === 'function') saveGame();
@@ -4791,6 +5379,7 @@
                     localStorage.removeItem(slotKey(slot) + '_bak');
                     localStorage.removeItem(classBackupKey(slot));
                     MODES.forEach(function (mode) { localStorage.removeItem(profileKey(slot, mode.id)); });
+                    invalidateSlotCache(slot);
                     if (current) { location.reload(); return; }
                     alert('已刪除存檔 ' + slot + ' 的角色資料。'); resumeMode(view);
                 } catch (e) { console.warn('[AFK] 刪除角色失敗', e); alert('刪除角色資料失敗。'); resume(); }
@@ -4939,47 +5528,128 @@
             var raw = null; try { raw = _lzGet(classBackupKey(slot)); } catch (e) {}
             if (!raw) { alert('此槽位沒有轉職備份。'); return; }
             var view = suspendMode(slot), resume = resumeOnce(view);
-            var run = function () { if (!saveSlotRaw(slot, raw)) { alert('還原失敗。'); resume(); return; } if (slot === slotNo() && typeof loadGame === 'function') loadGame(); else alert('已還原存檔 ' + slot + ' 的轉職備份。'); };
+            var run = function () { if (!saveSlotRaw(slot, raw)) { alert('還原失敗。'); resume(); return; } invalidateSlotCache(slot); if (slot === slotNo() && typeof loadGame === 'function') loadGame(); else { alert('已還原存檔 ' + slot + ' 的轉職備份。'); resumeMode(view); } };
             if (typeof gameConfirm === 'function') gameConfirm({ title:'還原轉職備份', message:'目前存檔將被轉職前的備份取代，確定繼續？', okText:'還原備份', danger:true, onOk:run, onCancel:resume, onDismiss:resume }); else if (confirm('確定還原轉職備份？')) run(); else resume();
         }
+        function buildSlotCard(slot, record) {
+            var s = record.sum, current = slot === slotNo(), mode = s ? slotMode(s) : null, card = document.createElement('article');
+            card.className = 'afk-mode-slot' + (current ? ' current' : '') + (!s ? ' empty' : '');
+            card.dataset.afkModeSlot = String(slot);
+            card.innerHTML = '<div class="afk-mode-slot-info"><span><b>存檔 ' + slot + (current ? '・目前角色' : '') + '</b><small>' + (s ? (s.cls || '角色') + ' Lv.' + (s.lv || 1) + (s.name ? '・' + s.name : '') : '空槽・可建立角色') + '</small></span>' + (s ? '<label class="afk-mode-slot-mode"><span>角色模式</span><select aria-label="存檔 ' + slot + ' 角色模式">' + modeOptions(mode.id) + '</select></label>' : '<em>空槽</em>') + '</div><div class="afk-mode-slot-actions"></div>';
+            var actions = card.querySelector('.afk-mode-slot-actions');
+            function add(text, cls, run) { var b = document.createElement('button'); b.type = 'button'; b.className = cls || ''; b.textContent = text; b.onclick = function (event) { event.stopPropagation(); run(); }; actions.appendChild(b); }
+            if (s) {
+                var select = card.querySelector('.afk-mode-slot-mode select');
+                select.onclick = function (event) { event.stopPropagation(); };
+                select.onkeydown = function (event) { event.stopPropagation(); };
+                select.onchange = function (event) {
+                    event.stopPropagation();
+                    var nextId = select.value;
+                    select.value = mode.id;
+                    confirmSlotMode(slot, nextId, s);
+                };
+            }
+            if (s && !current) {
+                card.classList.add('loadable'); card.tabIndex = 0; card.setAttribute('role','button'); card.setAttribute('aria-label','載入存檔 ' + slot + ' ' + (s.name || s.cls || '角色'));
+                card.onclick = function (event) { if (event.target.closest && event.target.closest('.afk-mode-slot-actions,.afk-mode-slot-mode')) return; loadSlot(slot); };
+                card.onkeydown = function (event) { if ((event.key === 'Enter' || event.key === ' ') && !(event.target.closest && event.target.closest('.afk-mode-slot-actions,.afk-mode-slot-mode'))) { event.preventDefault(); loadSlot(slot); } };
+            }
+            if (s) add('匯出', '', function () { downloadSlot(slot); });
+            add(s ? '匯入覆蓋' : '匯入', '', function () { beginImport(slot); });
+            if (s) { add('重新創角', 'danger', function () { beginCreate(slot, true); }); add('轉職', 'class', function () { openClassChooser(slot); }); add('刪除角色', 'delete', function () { deleteSlot(slot); }); }
+            else add('新創角色', 'primary', function () { beginCreate(slot, false); });
+            if (record.hasBackup) add('還原轉職備份', 'backup', function () { restoreClassBackup(slot); });
+            return card;
+        }
         function renderSlots(host) {
-            host.replaceChildren(); var max = 16;
-            for (var n = 1; n <= max; n++) {
-                var sum = null; try { sum = typeof slotSummary === 'function' ? slotSummary(n) : null; } catch (e) {}
-                (function (slot, s) {
-                    var current = slot === slotNo(), mode = s ? slotMode(s) : null, card = document.createElement('article');
-                    card.className = 'afk-mode-slot' + (current ? ' current' : '') + (!s ? ' empty' : '');
-                    card.dataset.afkModeSlot = String(slot);
-                    card.innerHTML = '<div class="afk-mode-slot-info"><span><b>存檔 ' + slot + (current ? '・目前角色' : '') + '</b><small>' + (s ? (s.cls || '角色') + ' Lv.' + (s.lv || 1) + (s.name ? '・' + s.name : '') : '空槽・可建立角色') + '</small></span><em>' + (mode ? mode.icon + ' ' + mode.name : '空槽') + '</em></div><div class="afk-mode-slot-actions"></div>';
-                    var actions = card.querySelector('.afk-mode-slot-actions');
-                    function add(text, cls, run) { var b = document.createElement('button'); b.type = 'button'; b.className = cls || ''; b.textContent = text; b.onclick = function (event) { event.stopPropagation(); run(); }; actions.appendChild(b); }
-                    if (s && !current) {
-                        card.classList.add('loadable'); card.tabIndex = 0; card.setAttribute('role','button'); card.setAttribute('aria-label','載入存檔 ' + slot + ' ' + (s.name || s.cls || '角色'));
-                        card.onclick = function (event) { if (event.target.closest && event.target.closest('.afk-mode-slot-actions')) return; loadSlot(slot); };
-                        card.onkeydown = function (event) { if ((event.key === 'Enter' || event.key === ' ') && !(event.target.closest && event.target.closest('.afk-mode-slot-actions'))) { event.preventDefault(); loadSlot(slot); } };
+            var generation = ++renderGeneration, focusSlot = host.dataset.afkFocusSlot || '', fragment = document.createDocumentFragment();
+            host.dataset.afkRendered = 'pending';
+            for (var n = 1; n <= 16; n++) {
+                var skeleton = document.createElement('div');
+                skeleton.className = 'afk-mode-slot afk-mode-slot-skeleton';
+                skeleton.dataset.afkModePlaceholder = String(n);
+                skeleton.innerHTML = '<span></span><i></i>';
+                fragment.appendChild(skeleton);
+            }
+            host.replaceChildren(fragment);
+            var slot = 1;
+            function nextChunk() {
+                if (generation !== renderGeneration || !host.isConnected) return;
+                var started = performance.now(), processed = 0;
+                while (slot <= 16 && processed < 4 && performance.now() - started < 6) {
+                    var currentSlotNumber = slot++, record = slotRecord(currentSlotNumber);
+                    var placeholder = host.querySelector('[data-afk-mode-placeholder="' + currentSlotNumber + '"]');
+                    if (placeholder) {
+                        var card = buildSlotCard(currentSlotNumber, record);
+                        placeholder.replaceWith(card);
+                        if (focusSlot === String(currentSlotNumber) && card.tabIndex >= 0) {
+                            try { card.focus({ preventScroll:true }); } catch (e) { card.focus(); }
+                        }
                     }
-                    if (s) add('匯出', '', function () { downloadSlot(slot); });
-                    add(s ? '匯入覆蓋' : '匯入', '', function () { beginImport(slot); });
-                    if (s) { add('重新創角', 'danger', function () { beginCreate(slot, true); }); add('轉職', 'class', function () { openClassChooser(slot); }); add('刪除角色', 'delete', function () { deleteSlot(slot); }); }
-                    else add('新創角色', 'primary', function () { beginCreate(slot, false); });
-                    try { if (_lzGet(classBackupKey(slot))) add('還原轉職備份', 'backup', function () { restoreClassBackup(slot); }); } catch (e) {}
-                    host.appendChild(card);
-                })(n, sum);
+                    processed++;
+                    if (!record.cached) break;
+                }
+                if (slot <= 16) setTimeout(nextChunk, 0);
+                else host.dataset.afkRendered = '1';
+            }
+            setTimeout(nextChunk, 0);
+        }
+        function setPanelTab(dialog, tab, focusTab) {
+            if (!dialog) return;
+            tab = tab === 'backup' ? 'backup' : 'saves';
+            dialog.dataset.afkModeTab = tab;
+            try { localStorage.setItem(TAB_KEY, tab); } catch (e) {}
+            dialog.querySelectorAll('[data-afk-mode-tab]').forEach(function (button) {
+                var active = button.dataset.afkModeTab === tab;
+                button.classList.toggle('active', active);
+                button.setAttribute('aria-selected', active ? 'true' : 'false');
+                button.tabIndex = active ? 0 : -1;
+            });
+            dialog.querySelectorAll('[data-afk-mode-pane]').forEach(function (pane) {
+                pane.hidden = pane.dataset.afkModePane !== tab;
+            });
+            if (tab === 'saves') {
+                var slots = dialog.querySelector('.afk-mode-slots');
+                if (slots && slots.dataset.afkRendered !== '1' && slots.dataset.afkRendered !== 'pending') {
+                    slots.dataset.afkRendered = 'pending';
+                    slots.innerHTML = '<div class="afk-mode-tab-loading">正在讀取角色存檔…</div>';
+                    AFKRuntime.schedule('mode:render-slots', function () {
+                        if (!dialog.isConnected || dialog.dataset.afkModeTab !== 'saves' || !slots.isConnected) {
+                            if (slots && slots.dataset.afkRendered === 'pending') slots.dataset.afkRendered = '0';
+                            return;
+                        }
+                        renderSlots(slots);
+                    }, { delay:0, frame:true, replace:true });
+                }
+            }
+            try { document.dispatchEvent(new CustomEvent('afk:mode-tab', { detail:{ dialog:dialog, tab:tab } })); } catch (e) {}
+            if (focusTab) {
+                var selected = dialog.querySelector('[data-afk-mode-tab="' + tab + '"]');
+                if (selected) selected.focus();
             }
         }
         function open(view) {
             close(); overlay = document.createElement('div'); overlay.id = 'afk-mode-overlay';
             var dialog = document.createElement('section'); dialog.className = 'afk-mode-dialog'; dialog.setAttribute('role','dialog'); dialog.setAttribute('aria-modal','true');
-            var head = document.createElement('header'); head.innerHTML = '<div><strong>🎮 遊戲模式</strong><small>切換模式並管理 16 個角色存檔槽</small></div><button type="button" aria-label="關閉">×</button>'; head.querySelector('button').onclick = close; dialog.appendChild(head);
-            var label = document.createElement('h3'); label.textContent = '目前角色切換模式'; dialog.appendChild(label);
-            var modes = document.createElement('div'); modes.className = 'afk-mode-grid'; MODES.forEach(function (m) { var b = document.createElement('button'); b.type = 'button'; b.dataset.mode = m.id; b.className = modeIdOf(player) === m.id ? 'active' : ''; b.textContent = m.icon + ' ' + m.name; b.onclick = function () { confirmMode(m.id); }; modes.appendChild(b); }); dialog.appendChild(modes);
-            var slotHead = document.createElement('div'); slotHead.className = 'afk-mode-slot-head'; slotHead.innerHTML = '<h3>角色存檔槽</h3><small>顯示全部 1–16 槽</small>'; dialog.appendChild(slotHead);
-            var slots = document.createElement('div'); slots.className = 'afk-mode-slots'; dialog.appendChild(slots); renderSlots(slots);
-            overlay.appendChild(dialog); document.body.appendChild(overlay);
-            AFKRuntime.layers.open('mode-settings', { element:overlay, content:dialog, position:false, onClose:function () { if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); overlay = null; } });
+            var head = document.createElement('header'); head.innerHTML = '<div><strong>🎮 遊戲模式</strong><small>管理遊戲模式、角色存檔與自訂備份</small></div><button type="button" aria-label="關閉">×</button>'; head.querySelector('button').onclick = close; dialog.appendChild(head);
+            var tabs = document.createElement('div'); tabs.className = 'afk-mode-tabs'; tabs.setAttribute('role','tablist');
+            tabs.innerHTML = '<button type="button" role="tab" data-afk-mode-tab="saves">🗂️ 存檔功能</button><button type="button" role="tab" data-afk-mode-tab="backup">💾 備份功能</button>';
+            tabs.querySelectorAll('button').forEach(function (button) { button.onclick = function () { setPanelTab(dialog, button.dataset.afkModeTab, false); }; });
+            dialog.appendChild(tabs);
+            var savesPane = document.createElement('div'); savesPane.className = 'afk-mode-tab-pane'; savesPane.dataset.afkModePane = 'saves';
+            var slotHead = document.createElement('div'); slotHead.className = 'afk-mode-slot-head'; slotHead.innerHTML = '<h3>角色存檔槽</h3><small>每個已有角色的槽位可直接選擇模式</small>'; savesPane.appendChild(slotHead);
+            var slots = document.createElement('div'); slots.className = 'afk-mode-slots'; if (view && view.focusSlot) slots.dataset.afkFocusSlot = String(view.focusSlot); savesPane.appendChild(slots);
+            var backupPane = document.createElement('div'); backupPane.className = 'afk-mode-tab-pane'; backupPane.dataset.afkModePane = 'backup';
+            backupPane.innerHTML = '<div class="afk-mode-tab-loading">正在載入備份工具…</div>';
+            dialog.appendChild(savesPane); dialog.appendChild(backupPane);
+            overlay.appendChild(dialog); document.body.classList.add('afk-mode-open'); document.body.appendChild(overlay);
+            AFKRuntime.layers.open('mode-settings', { element:overlay, content:dialog, position:false, onClose:function () { document.body.classList.remove('afk-mode-open'); if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay); overlay = null; } });
+            var initialTab = view && view.tab;
+            if (!initialTab) { try { initialTab = localStorage.getItem(TAB_KEY); } catch (e) {} }
+            setPanelTab(dialog, initialTab, false);
             if (view) AFKRuntime.schedule('mode:restore-view', function () {
                 if (!dialog.isConnected) return; dialog.scrollTop = Math.max(0, Number(view.scrollTop || 0));
-                if (view.focusSlot) { var focusCard = dialog.querySelector('[data-afk-mode-slot="' + String(view.focusSlot).replace(/"/g, '') + '"]'); if (focusCard && focusCard.tabIndex >= 0) { try { focusCard.focus({ preventScroll:true }); } catch (e) { focusCard.focus(); } } }
+                if (dialog.dataset.afkModeTab === 'saves' && view.focusSlot) { var focusCard = dialog.querySelector('[data-afk-mode-slot="' + String(view.focusSlot).replace(/"/g, '') + '"]'); if (focusCard && focusCard.tabIndex >= 0) { try { focusCard.focus({ preventScroll:true }); } catch (e) { focusCard.focus(); } } }
             }, { delay:0, frame:false, replace:true });
         }
         function ensure() {
@@ -4996,6 +5666,447 @@
             AFKRuntime.hooks.intercept('openSlotSelect', 'mode-slot-refresh', function (next, self, args) { if (overlay && overlay.isConnected) { refreshSlots(); return; } return next.apply(null, args); });
         }
         AFKRuntime.when('mode:host', function () { return document.getElementById('classic-badge') || document.getElementById('traditional-badge'); }, install);
+    }
+
+    // ============================================================
+    //  💾 自訂排程備份、本機匯出與還原
+    // ============================================================
+    function initBackupManagerModule() {
+        var CONFIG_KEY = 'afk_backup_manager_v1';
+        var LOCK_KEY = 'afk_backup_manager_lock_v1';
+        var DB_NAME = 'afk-backup-handles';
+        var FILE_PREFIX = 'fable5_backup_';
+        var BUNDLE_TYPE = 'afk_backup_bundle_v1';
+        var DEFAULT_RETENTION = 30;
+        var instanceId = Date.now().toString(36) + Math.random().toString(36).slice(2);
+        var busy = false, localHandle = null, backupNoticeOverlay = null;
+
+        function defaults() {
+            return {
+                enabled:false,
+                schedule:'interval',
+                intervalValue:1,
+                intervalUnit:'hour',
+                dailyTime:'02:00',
+                retention:DEFAULT_RETENTION,
+                slots:[],
+                targets:{ local:true },
+                nextDue:0,
+                lastAttempt:0,
+                lastSuccess:0,
+                lastMessage:'尚未執行備份',
+                pending:{ local:false }
+            };
+        }
+        function readConfig() {
+            var cfg = defaults(), raw = null;
+            try { raw = JSON.parse(localStorage.getItem(CONFIG_KEY) || 'null'); } catch (e) {}
+            if (raw && typeof raw === 'object') {
+                Object.keys(cfg).forEach(function (key) { if (raw[key] !== undefined) cfg[key] = raw[key]; });
+                cfg.targets = { local:raw.targets ? raw.targets.local !== false : true };
+                cfg.pending = { local:!!(raw.pending && raw.pending.local) };
+            }
+            cfg.slots = Array.isArray(cfg.slots) ? cfg.slots.map(Number).filter(function (n, i, a) { return n >= 1 && n <= 16 && a.indexOf(n) === i; }) : [];
+            cfg.intervalValue = Math.max(1, Math.min(10080, Number(cfg.intervalValue) || 1));
+            cfg.retention = Math.max(1, Math.min(500, Math.floor(Number(cfg.retention) || DEFAULT_RETENTION)));
+            if (['minute','hour','day'].indexOf(cfg.intervalUnit) < 0) cfg.intervalUnit = 'hour';
+            if (!/^\d{2}:\d{2}$/.test(cfg.dailyTime || '')) cfg.dailyTime = '02:00';
+            return cfg;
+        }
+        var config = readConfig();
+        function retentionLimit() { return Math.max(1, Math.min(500, Math.floor(Number(config.retention) || DEFAULT_RETENTION))); }
+        function writeConfig() {
+            try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (e) {}
+            queuePanelRefresh();
+        }
+        function escText(value) {
+            return String(value == null ? '' : value).replace(/[&<>"]/g, function (c) { return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; });
+        }
+        function closeBackupNotice() {
+            if (AFKRuntime.layers.close('backup-notice', 'button')) return;
+            if (backupNoticeOverlay && backupNoticeOverlay.parentNode) backupNoticeOverlay.parentNode.removeChild(backupNoticeOverlay);
+            backupNoticeOverlay = null;
+        }
+        function showBackupNotice(title, message, type) {
+            closeBackupNotice();
+            backupNoticeOverlay = document.createElement('div');
+            backupNoticeOverlay.id = 'afk-backup-notice-overlay';
+            backupNoticeOverlay.innerHTML = '<section class="afk-backup-notice-dialog ' + escText(type || 'error') + '" role="alertdialog" aria-modal="true"><header><strong>' + escText(title) + '</strong><button type="button" aria-label="關閉">×</button></header><p>' + escText(message).replace(/\n/g, '<br>') + '</p><button type="button" class="confirm">確定</button></section>';
+            document.body.appendChild(backupNoticeOverlay);
+            var closeButtons = backupNoticeOverlay.querySelectorAll('button');
+            closeButtons.forEach(function (button) { button.onclick = closeBackupNotice; });
+            backupNoticeOverlay.onclick = function (event) { if (event.target === backupNoticeOverlay) closeBackupNotice(); };
+            AFKRuntime.layers.open('backup-notice', { element:backupNoticeOverlay, content:backupNoticeOverlay.querySelector('.afk-backup-notice-dialog'), position:false, onClose:function () {
+                if (backupNoticeOverlay && backupNoticeOverlay.parentNode) backupNoticeOverlay.parentNode.removeChild(backupNoticeOverlay);
+                backupNoticeOverlay = null;
+            } });
+            try { backupNoticeOverlay.querySelector('.confirm').focus({ preventScroll:true }); } catch (e) {}
+        }
+        function dateText(ts) {
+            if (!ts) return '—';
+            try { return new Date(ts).toLocaleString('zh-TW', { hour12:false }); } catch (e) { return new Date(ts).toString(); }
+        }
+        function backupName(ts) {
+            var d = new Date(ts || Date.now()), p = function (n) { return String(n).padStart(2, '0'); };
+            return FILE_PREFIX + d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + '-' + p(d.getMinutes()) + '-' + p(d.getSeconds()) + '.json';
+        }
+        function intervalMs() {
+            var unit = config.intervalUnit === 'day' ? 86400000 : (config.intervalUnit === 'hour' ? 3600000 : 60000);
+            return Math.max(15 * 60000, Number(config.intervalValue || 1) * unit);
+        }
+        function calculateNext(from) {
+            from = Number(from || Date.now());
+            if (config.schedule !== 'daily') return from + intervalMs();
+            var parts = String(config.dailyTime || '02:00').split(':').map(Number), next = new Date(from);
+            next.setHours(parts[0] || 0, parts[1] || 0, 0, 0);
+            if (next.getTime() <= from) next.setDate(next.getDate() + 1);
+            return next.getTime();
+        }
+        function resetNextDue() { config.nextDue = calculateNext(Date.now()); writeConfig(); }
+        function selectedTargets(only) {
+            var wanted = only && only.length ? only : ['local'];
+            return wanted.filter(function (key) { return !!config.targets[key]; });
+        }
+        function slotKey(slot) { return 'lineage_idle_save_' + Number(slot); }
+        function rawSlot(slot) {
+            try { return typeof _lzGet === 'function' ? _lzGet(slotKey(slot)) : localStorage.getItem(slotKey(slot)); } catch (e) { return null; }
+        }
+        function slotSummarySafe(slot) {
+            try { return typeof slotSummary === 'function' ? slotSummary(slot) : null; } catch (e) { return null; }
+        }
+        function buildSlotExport(slot) {
+            if (Number(slot) === Number(typeof currentSlot !== 'undefined' ? currentSlot : -1) && typeof saveGame === 'function') saveGame();
+            var un = _saveUnwrap(rawSlot(slot));
+            if (!un || !un.payload || (un.signed && !un.ok)) throw new Error('存檔 ' + slot + ' 無法讀取或完整性校驗失敗');
+            var data = JSON.parse(un.payload), p = data.p || {};
+            if (!p.cls) throw new Error('存檔 ' + slot + ' 不是有效角色');
+            var suffix = typeof modeSuffix === 'function' ? modeSuffix(!!p.classicMode, !!p.traditionalMode) : '';
+            try {
+                var whRaw = _lzGet(typeof whKey === 'function' ? whKey(p) : 'lineage_warehouse' + suffix);
+                if (whRaw) data.wh = JSON.parse(whRaw);
+            } catch (e) {}
+            try {
+                var petSuffix = typeof modeSuffix === 'function' ? modeSuffix(!!p.classicMode, false) : (p.classicMode ? '_classic' : '');
+                var petRaw = _lzGet('fb5_pet_roster' + petSuffix), petUn = petRaw ? _saveUnwrap(petRaw) : null;
+                if (petUn && petUn.ok) {
+                    var pets = JSON.parse(petUn.payload);
+                    if (Array.isArray(pets)) data.pets = pets;
+                }
+            } catch (e) {}
+            var sum = slotSummarySafe(slot);
+            return {
+                slot:Number(slot),
+                name:sum && sum.name || '',
+                cls:sum && sum.cls || p.cls,
+                lv:Number(sum && sum.lv || p.lv || 1),
+                save:_saveWrap(JSON.stringify(data))
+            };
+        }
+        function buildBundle() {
+            var slots = config.slots.slice().sort(function (a, b) { return a - b; }).filter(function (slot) { return !!slotSummarySafe(slot); });
+            if (!slots.length) throw new Error('請至少選擇一個已有角色的存檔槽');
+            var createdAt = Date.now(), entries = slots.map(buildSlotExport);
+            var payload = {
+                type:BUNDLE_TYPE,
+                format:1,
+                createdAt:createdAt,
+                origin:location.origin,
+                slots:entries
+            };
+            return { name:backupName(createdAt), createdAt:createdAt, slots:entries, text:_saveWrap(JSON.stringify(payload)) };
+        }
+        function parseBundle(text) {
+            var outer = _saveUnwrap(String(text || ''));
+            if (!outer || !outer.signed || !outer.ok) throw new Error('備份檔完整性校驗失敗或不是排程備份檔');
+            var data = JSON.parse(outer.payload);
+            if (!data || data.type !== BUNDLE_TYPE || !Array.isArray(data.slots) || !data.slots.length) throw new Error('備份檔格式不正確');
+            var seen = {};
+            data.slots = data.slots.map(function (entry) {
+                var slot = Number(entry && entry.slot), inner = _saveUnwrap(entry && entry.save || '');
+                if (slot < 1 || slot > 16 || seen[slot]) throw new Error('備份檔包含無效或重複的存檔槽');
+                if (!inner || !inner.signed || !inner.ok) throw new Error('存檔 ' + slot + ' 的完整性校驗失敗');
+                var save = JSON.parse(inner.payload);
+                if (!save || !save.p || !save.p.cls) throw new Error('存檔 ' + slot + ' 缺少有效角色資料');
+                seen[slot] = true;
+                return { slot:slot, saveText:inner.payload, data:save, label:entry.name || entry.cls || save.p.name || save.p.cls };
+            });
+            return data;
+        }
+        function rawStorageGet(key) {
+            try { return typeof _lzGet === 'function' ? _lzGet(key) : localStorage.getItem(key); } catch (e) { return null; }
+        }
+        function rawStorageSet(key, value) {
+            if (value == null) { localStorage.removeItem(key); return true; }
+            if (typeof _lzSet === 'function') return _lzSet(key, value);
+            localStorage.setItem(key, value); return true;
+        }
+        function restoreBundle(bundle) {
+            var changed = {}, remember = function (key) { if (!Object.prototype.hasOwnProperty.call(changed, key)) changed[key] = rawStorageGet(key); };
+            try {
+                bundle.slots.forEach(function (entry) {
+                    var p = entry.data.p || {}, saveKey = slotKey(entry.slot);
+                    remember(saveKey);
+                    if (changed[saveKey] != null) {
+                        var bakKey = saveKey + '_bak'; remember(bakKey); rawStorageSet(bakKey, changed[saveKey]);
+                    }
+                    var clean = {};
+                    Object.keys(entry.data).forEach(function (key) { if (key !== 'wh' && key !== 'pets') clean[key] = entry.data[key]; });
+                    if (_lzSet(saveKey, _saveWrap(JSON.stringify(clean))) === false) throw new Error('寫入存檔 ' + entry.slot + ' 失敗');
+                    if (entry.data.wh !== undefined) {
+                        var whStore = typeof whKey === 'function' ? whKey(p) : 'lineage_warehouse' + (typeof modeSuffix === 'function' ? modeSuffix(!!p.classicMode, !!p.traditionalMode) : '');
+                        remember(whStore);
+                        if (_lzSet(whStore, JSON.stringify({ items:entry.data.wh.items || [], gold:Number(entry.data.wh.gold || 0) })) === false) throw new Error('寫入共用倉庫失敗');
+                    }
+                    if (Array.isArray(entry.data.pets)) {
+                        var petSuffix = typeof modeSuffix === 'function' ? modeSuffix(!!p.classicMode, false) : (p.classicMode ? '_classic' : '');
+                        var petStore = 'fb5_pet_roster' + petSuffix; remember(petStore);
+                        if (_lzSet(petStore, _saveWrap(JSON.stringify(entry.data.pets))) === false) throw new Error('寫入寵物名冊失敗');
+                    }
+                });
+            } catch (error) {
+                Object.keys(changed).forEach(function (key) { try { rawStorageSet(key, changed[key]); } catch (e) {} });
+                throw error;
+            }
+        }
+        function confirmRestore(text, sourceName) {
+            var bundle;
+            try { bundle = parseBundle(text); } catch (e) { alert('無法還原：' + e.message); return; }
+            var slots = bundle.slots.map(function (x) { return x.slot; }), current = Number(typeof currentSlot !== 'undefined' ? currentSlot : -1);
+            var message = '將從「' + sourceName + '」還原存檔槽 ' + slots.join('、') + '。\n現有角色會先建立匯入前備份，共用倉庫與寵物名冊也會依備份內容還原。\n確定繼續？';
+            var run = function () {
+                try {
+                    restoreBundle(bundle);
+                    if (slots.indexOf(current) >= 0) { alert('還原完成，頁面將重新載入目前角色。'); location.reload(); }
+                    else { alert('還原完成：存檔槽 ' + slots.join('、') + '。'); refreshPanel(); }
+                } catch (e) { console.warn('[AFK] 還原備份失敗', e); alert('還原失敗，已嘗試回復寫入前資料：' + e.message); }
+            };
+            if (typeof gameConfirm === 'function') gameConfirm({ title:'還原角色備份', message:message, okText:'確認還原', danger:true, onOk:run });
+            else if (confirm(message)) run();
+        }
+
+        function idbOpen() {
+            return new Promise(function (resolve, reject) {
+                if (!window.indexedDB) { reject(new Error('瀏覽器不支援本機資料夾記憶')); return; }
+                var req = indexedDB.open(DB_NAME, 1);
+                req.onupgradeneeded = function () { if (!req.result.objectStoreNames.contains('handles')) req.result.createObjectStore('handles'); };
+                req.onsuccess = function () { resolve(req.result); };
+                req.onerror = function () { reject(req.error || new Error('無法開啟本機資料夾資料庫')); };
+            });
+        }
+        async function idbGetHandle() {
+            if (localHandle) return localHandle;
+            var db = await idbOpen();
+            return new Promise(function (resolve) {
+                var req = db.transaction('handles', 'readonly').objectStore('handles').get('backup-directory');
+                req.onsuccess = function () { localHandle = req.result || null; resolve(localHandle); };
+                req.onerror = function () { resolve(null); };
+            });
+        }
+        async function idbSetHandle(handle) {
+            var db = await idbOpen();
+            await new Promise(function (resolve, reject) {
+                var req = db.transaction('handles', 'readwrite').objectStore('handles').put(handle, 'backup-directory');
+                req.onsuccess = function () { resolve(); }; req.onerror = function () { reject(req.error); };
+            });
+            localHandle = handle;
+        }
+        async function chooseLocalDirectory() {
+            if (!window.showDirectoryPicker) { alert('此瀏覽器不支援排程寫入資料夾；仍可使用「下載一份」與「從本機還原」。'); return; }
+            try {
+                var handle = await window.showDirectoryPicker({ id:'fable5-backups', mode:'readwrite', startIn:'downloads' });
+                if (handle.requestPermission && await handle.requestPermission({ mode:'readwrite' }) !== 'granted') throw new Error('未取得資料夾寫入權限');
+                await idbSetHandle(handle); config.targets.local = true; config.pending.local = false; writeConfig();
+            } catch (e) { if (!e || e.name !== 'AbortError') alert('無法使用該資料夾：' + e.message); }
+        }
+        async function localPermission(handle, interactive) {
+            if (!handle) return false;
+            if (!handle.queryPermission) return true;
+            if (await handle.queryPermission({ mode:'readwrite' }) === 'granted') return true;
+            return !!(interactive && handle.requestPermission && await handle.requestPermission({ mode:'readwrite' }) === 'granted');
+        }
+        async function pruneLocal(handle) {
+            var names = [];
+            try {
+                for await (var row of handle.entries()) {
+                    if (row[1] && row[1].kind === 'file' && row[0].indexOf(FILE_PREFIX) === 0 && /\.json$/i.test(row[0])) names.push(row[0]);
+                }
+            } catch (e) { return; }
+            names.sort().reverse();
+            for (var i = retentionLimit(); i < names.length; i++) { try { await handle.removeEntry(names[i]); } catch (e) {} }
+        }
+        async function writeLocal(bundle, interactive) {
+            var handle = await idbGetHandle();
+            if (!handle || !await localPermission(handle, interactive)) {
+                var err = new Error('本機資料夾需要重新授權'); err.code = 'AUTH'; throw err;
+            }
+            var file = await handle.getFileHandle(bundle.name, { create:true }), writer = await file.createWritable();
+            await writer.write(bundle.text); await writer.close(); await pruneLocal(handle);
+        }
+        function downloadBundle(bundle) {
+            if (typeof downloadSaveFile === 'function') downloadSaveFile(bundle.text, bundle.name);
+            else {
+                var blob = new Blob([bundle.text], { type:'application/json' }), url = URL.createObjectURL(blob), a = document.createElement('a');
+                a.href = url; a.download = bundle.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+            }
+        }
+
+        function acquireLock() {
+            try {
+                var now = Date.now(), current = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null');
+                if (current && current.owner !== instanceId && Number(current.until || 0) > now) return false;
+                localStorage.setItem(LOCK_KEY, JSON.stringify({ owner:instanceId, until:now + 120000 }));
+                var check = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null');
+                return !!(check && check.owner === instanceId);
+            } catch (e) { return true; }
+        }
+        function releaseLock() {
+            try { var current = JSON.parse(localStorage.getItem(LOCK_KEY) || 'null'); if (current && current.owner === instanceId) localStorage.removeItem(LOCK_KEY); } catch (e) {}
+        }
+        async function runBackup(options) {
+            options = options || {};
+            if (busy || !acquireLock()) return;
+            busy = true; refreshPanel();
+            var targets = selectedTargets(options.only), ok = [], failed = [], bundle = null;
+            try {
+                if (!targets.length) throw new Error('請啟用本機資料夾備份');
+                bundle = buildBundle();
+                for (var i = 0; i < targets.length; i++) {
+                    var target = targets[i];
+                    try {
+                        if (target === 'local') await writeLocal(bundle, !!options.manual);
+                        config.pending[target] = false; ok.push(target);
+                    } catch (e) {
+                        config.pending[target] = true; failed.push('本機：' + e.message);
+                    }
+                }
+                config.lastAttempt = Date.now();
+                if (ok.length) config.lastSuccess = config.lastAttempt;
+                config.lastMessage = ok.length ? ('已備份至本機資料夾' + (failed.length ? '；請重新授權資料夾' : '')) : ('備份尚未完成：' + failed.join('；'));
+                if (!options.keepSchedule) config.nextDue = calculateNext(config.lastAttempt);
+                writeConfig();
+                if (options.manual) {
+                    if (ok.length) showBackupNotice('備份完成', config.lastMessage + '\n本機資料夾只保留最近 ' + retentionLimit() + ' 份。', 'success');
+                    else showBackupNotice('備份尚未完成', config.lastMessage);
+                } else if (typeof logSys === 'function') logSys('<span class="' + (ok.length ? 'text-emerald-300' : 'text-amber-300') + ' font-bold">💾 ' + escText(config.lastMessage) + '</span>');
+            } catch (e) {
+                config.lastAttempt = Date.now(); config.lastMessage = e.message; config.nextDue = calculateNext(config.lastAttempt); writeConfig();
+                if (options.manual) showBackupNotice('無法備份', e.message); else console.warn('[AFK] 排程備份失敗', e);
+            } finally { busy = false; releaseLock(); refreshPanel(); }
+        }
+        function schedulerTick() {
+            if (!config.enabled || busy) return;
+            if (!config.nextDue) { config.nextDue = calculateNext(Date.now()); writeConfig(); return; }
+            if (Date.now() >= Number(config.nextDue)) runBackup({ manual:false });
+        }
+
+        function chooseLocalRestore() {
+            var input = document.createElement('input'); input.type = 'file'; input.accept = '.json,application/json';
+            input.onchange = function () {
+                var file = input.files && input.files[0]; if (!file) return;
+                var reader = new FileReader();
+                reader.onload = function () { confirmRestore(reader.result, '本機／' + file.name); };
+                reader.onerror = function () { alert('無法讀取本機備份檔。'); };
+                reader.readAsText(file);
+            };
+            input.click();
+        }
+        function slotCheckboxes() {
+            var html = '';
+            for (var slot = 1; slot <= 16; slot++) {
+                var sum = slotSummarySafe(slot), checked = config.slots.indexOf(slot) >= 0;
+                html += '<label class="' + (!sum ? 'empty' : '') + '"><input type="checkbox" data-afk-backup-slot="' + slot + '"' + (checked ? ' checked' : '') + (!sum ? ' disabled' : '') + '><span><b>' + slot + '</b><small>' + (sum ? escText((sum.name || sum.cls || '角色') + ' Lv.' + (sum.lv || 1)) : '空槽') + '</small></span></label>';
+            }
+            return html;
+        }
+        function panelMarkup() {
+            return '<section class="afk-backup-card">' +
+                '<div class="afk-backup-title"><span><b>💾 自訂角色備份</b><small>自選角色槽・本機資料夾只保留最近 ' + retentionLimit() + ' 份</small></span><label><input type="checkbox" data-afk-backup-enabled' + (config.enabled ? ' checked' : '') + '>啟用排程</label></div>' +
+                '<div class="afk-backup-schedule"><label>排程<select data-afk-backup-schedule><option value="interval"' + (config.schedule === 'interval' ? ' selected' : '') + '>固定間隔</option><option value="daily"' + (config.schedule === 'daily' ? ' selected' : '') + '>每日指定時間</option></select></label>' +
+                '<label class="interval' + (config.schedule === 'daily' ? ' hidden-field' : '') + '">每隔<input type="number" min="1" max="10080" data-afk-backup-interval value="' + Number(config.intervalValue) + '"><select data-afk-backup-unit><option value="minute"' + (config.intervalUnit === 'minute' ? ' selected' : '') + '>分鐘</option><option value="hour"' + (config.intervalUnit === 'hour' ? ' selected' : '') + '>小時</option><option value="day"' + (config.intervalUnit === 'day' ? ' selected' : '') + '>天</option></select></label>' +
+                '<label class="daily' + (config.schedule !== 'daily' ? ' hidden-field' : '') + '">時間<input type="time" data-afk-backup-time value="' + escText(config.dailyTime) + '"></label>' +
+                '<label>保留上限<input type="number" min="1" max="500" data-afk-backup-retention value="' + retentionLimit() + '"><span>份</span></label></div>' +
+                '<div class="afk-backup-destinations">' +
+                '<article><label><input type="checkbox" data-afk-backup-target="local"' + (config.targets.local ? ' checked' : '') + '>本機資料夾</label><button type="button" data-afk-backup-connect="local">選擇／授權資料夾</button></article>' +
+                '</div><small class="afk-backup-origin">排程於遊戲頁面開啟時執行；關閉期間錯過的排程會在下次開啟補跑。<br>排程備份會寫入已授權的本機資料夾；「下載一份」可直接另存單一備份檔。</small>' +
+                '<div class="afk-backup-slot-title"><b>選擇要備份的角色槽</b><button type="button" data-afk-backup-select-all>選取全部已有角色</button></div><div class="afk-backup-slots">' + slotCheckboxes() + '</div>' +
+                '<div class="afk-backup-actions"><button type="button" class="primary" data-afk-backup-now>立即備份</button><button type="button" data-afk-backup-download>下載一份</button><button type="button" data-afk-backup-restore="local">從本機還原</button></div>' +
+                '<div class="afk-backup-status ' + (busy ? 'busy' : '') + '"><b>' + (busy ? '備份處理中…' : escText(config.lastMessage)) + '</b><span>上次成功：' + dateText(config.lastSuccess) + '　下次排程：' + (config.enabled ? dateText(config.nextDue) : '未啟用') + '</span></div></section>';
+        }
+        function bindPanel(section) {
+            var enabled = section.querySelector('[data-afk-backup-enabled]');
+            enabled.onchange = function () { config.enabled = enabled.checked; if (config.enabled) config.nextDue = calculateNext(Date.now()); writeConfig(); };
+            section.querySelector('[data-afk-backup-schedule]').onchange = function (e) { config.schedule = e.target.value; resetNextDue(); };
+            section.querySelector('[data-afk-backup-interval]').onchange = function (e) { config.intervalValue = Math.max(1, Number(e.target.value) || 1); resetNextDue(); };
+            section.querySelector('[data-afk-backup-unit]').onchange = function (e) { config.intervalUnit = e.target.value; resetNextDue(); };
+            section.querySelector('[data-afk-backup-time]').onchange = function (e) { config.dailyTime = e.target.value || '02:00'; resetNextDue(); };
+            var retentionInput = section.querySelector('[data-afk-backup-retention]');
+            function updateRetention(refresh) {
+                config.retention = Math.max(1, Math.min(500, Math.floor(Number(retentionInput.value) || DEFAULT_RETENTION)));
+                try { localStorage.setItem(CONFIG_KEY, JSON.stringify(config)); } catch (e) {}
+                if (refresh) queuePanelRefresh();
+            }
+            retentionInput.oninput = function () { updateRetention(false); };
+            retentionInput.onchange = function () { updateRetention(true); };
+            section.querySelectorAll('[data-afk-backup-target]').forEach(function (input) { input.onchange = function () { config.targets[input.dataset.afkBackupTarget] = input.checked; writeConfig(); }; });
+            section.querySelectorAll('[data-afk-backup-slot]').forEach(function (input) {
+                input.onchange = function () {
+                    var slot = Number(input.dataset.afkBackupSlot), index = config.slots.indexOf(slot);
+                    if (input.checked && index < 0) config.slots.push(slot); else if (!input.checked && index >= 0) config.slots.splice(index, 1);
+                    writeConfig();
+                };
+            });
+            section.querySelector('[data-afk-backup-select-all]').onclick = function () {
+                config.slots = []; for (var slot = 1; slot <= 16; slot++) if (slotSummarySafe(slot)) config.slots.push(slot); writeConfig();
+            };
+            section.querySelector('[data-afk-backup-connect="local"]').onclick = chooseLocalDirectory;
+            section.querySelector('[data-afk-backup-now]').onclick = function () { runBackup({ manual:true }); };
+            section.querySelector('[data-afk-backup-download]').onclick = function () { try { downloadBundle(buildBundle()); } catch (e) { showBackupNotice('無法建立備份', e.message); } };
+            section.querySelector('[data-afk-backup-restore="local"]').onclick = chooseLocalRestore;
+        }
+        function refreshPanel() {
+            var section = document.querySelector('.afk-mode-dialog .afk-backup-card');
+            if (!section) return;
+            var parent = section.parentNode, next = section.nextSibling, replacement = document.createElement('div');
+            replacement.innerHTML = panelMarkup(); replacement = replacement.firstElementChild;
+            parent.insertBefore(replacement, next); section.remove(); bindPanel(replacement);
+        }
+        function queuePanelRefresh() {
+            AFKRuntime.schedule('backup:panel-refresh', refreshPanel, { delay:0, frame:true, replace:true });
+        }
+        function ensurePanel(dialog) {
+            dialog = dialog && dialog.isConnected ? dialog : document.querySelector('.afk-mode-dialog');
+            if (!dialog || dialog.dataset.afkModeTab !== 'backup') return;
+            var pane = dialog.querySelector('[data-afk-mode-pane="backup"]'); if (!pane) return;
+            var existing = dialog.querySelector('.afk-backup-card'); if (existing) return;
+            var wrapper = document.createElement('div'); wrapper.innerHTML = panelMarkup(); var section = wrapper.firstElementChild;
+            pane.replaceChildren(section); bindPanel(section);
+        }
+        function onModeTab(event) {
+            var detail = event && event.detail || {};
+            if (detail.tab === 'backup') ensurePanel(detail.dialog);
+        }
+        function installStyle() {
+            if (document.getElementById('afk-backup-style')) return;
+            var style = document.createElement('style'); style.id = 'afk-backup-style';
+            style.textContent =
+                '.afk-backup-card{box-sizing:border-box;margin-top:11px;padding:10px;border:1px solid #0e7490;border-radius:10px;background:linear-gradient(145deg,rgba(8,47,73,.55),rgba(15,23,42,.95));color:#e2e8f0}.afk-backup-title{display:flex;align-items:center;justify-content:space-between;gap:10px}.afk-backup-title>span{display:flex;flex-direction:column}.afk-backup-title b{color:#a5f3fc;font-size:12px}.afk-backup-title small,.afk-backup-origin{color:#94a3b8;font-size:8px}.afk-backup-title>label{display:flex;align-items:center;gap:5px;color:#d1fae5;font-size:10px;font-weight:800;white-space:nowrap}.afk-backup-schedule{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}.afk-backup-schedule label{min-width:0;display:flex;align-items:center;gap:5px;padding:5px 7px;border:1px solid #334155;border-radius:7px;background:#111827;color:#cbd5e1;font-size:9px}.afk-backup-schedule label.hidden-field{display:none!important}.afk-backup-schedule input,.afk-backup-schedule select{box-sizing:border-box;min-width:0;flex:1;padding:5px 6px;border:1px solid #475569;border-radius:5px;background:#0f172a;color:#f8fafc;font-size:9px}.afk-backup-destinations{display:grid;grid-template-columns:1fr;gap:6px;margin-top:7px}.afk-backup-destinations article{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px;border:1px solid #334155;border-radius:8px;background:rgba(15,23,42,.72)}.afk-backup-destinations label{display:flex;align-items:center;gap:5px;color:#e2e8f0;font-size:9px;font-weight:900}.afk-backup-destinations button,.afk-backup-actions button,.afk-backup-slot-title button{min-height:29px;padding:5px 7px;border:1px solid #475569;border-radius:6px;background:#1e293b;color:#e2e8f0;font:800 8px system-ui;cursor:pointer}.afk-backup-origin{display:block;margin-top:6px;line-height:1.5;overflow-wrap:anywhere}.afk-backup-slot-title{display:flex;align-items:center;justify-content:space-between;margin-top:8px}.afk-backup-slot-title b{color:#cbd5e1;font-size:9px}.afk-backup-slots{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin-top:5px}.afk-backup-slots label{min-width:0;display:flex;align-items:center;gap:4px;padding:5px;border:1px solid #334155;border-radius:6px;background:#111827}.afk-backup-slots label.empty{opacity:.45}.afk-backup-slots span{min-width:0;display:flex;align-items:center;gap:4px}.afk-backup-slots b{display:grid;place-items:center;flex:none;width:18px;height:18px;border-radius:50%;background:#164e63;color:#a5f3fc;font-size:8px}.afk-backup-slots small{overflow:hidden;color:#cbd5e1;font-size:7px;text-overflow:ellipsis;white-space:nowrap}.afk-backup-actions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:8px}.afk-backup-actions button.primary{border-color:#10b981;background:#065f46;color:#d1fae5}.afk-backup-status{display:flex;flex-direction:column;gap:2px;margin-top:7px;padding:6px 8px;border:1px solid #334155;border-radius:7px;background:#0f172a}.afk-backup-status b{color:#86efac;font-size:9px}.afk-backup-status span{color:#94a3b8;font-size:8px}.afk-backup-status.busy b{color:#fde68a}' +
+                '@media(max-width:760px){body.m-mobile .afk-backup-card{padding:9px}body.m-mobile .afk-backup-title{align-items:flex-start}body.m-mobile .afk-backup-title b{font-size:14px}body.m-mobile .afk-backup-title small{font-size:10px}body.m-mobile .afk-backup-schedule{grid-template-columns:1fr}body.m-mobile .afk-backup-schedule label{min-height:40px;font-size:11px}body.m-mobile .afk-backup-schedule input,body.m-mobile .afk-backup-schedule select{min-height:38px;font-size:11px}body.m-mobile .afk-backup-destinations article{min-height:40px}body.m-mobile .afk-backup-destinations button,body.m-mobile .afk-backup-actions button,body.m-mobile .afk-backup-slot-title button{min-height:40px;font-size:10px}body.m-mobile .afk-backup-slots{grid-template-columns:repeat(2,minmax(0,1fr))}body.m-mobile .afk-backup-slots label{min-height:38px}body.m-mobile .afk-backup-slots small{font-size:9px}body.m-mobile .afk-backup-actions{grid-template-columns:repeat(2,minmax(0,1fr))}body.m-mobile .afk-backup-actions .primary{grid-column:1/-1}body.m-mobile .afk-backup-status b{font-size:11px}body.m-mobile .afk-backup-status span{font-size:9px}}';
+            style.textContent +=
+                '#afk-backup-notice-overlay{position:fixed;inset:0;z-index:2147483647;isolation:isolate;display:grid;place-items:center;padding:14px;background:rgba(2,6,23,.82);font-family:system-ui,sans-serif}.afk-backup-notice-dialog{box-sizing:border-box;width:min(560px,100%);padding:14px;border:1px solid #be123c;border-radius:14px;background:#0f172a;color:#e2e8f0;box-shadow:0 24px 80px #000}.afk-backup-notice-dialog.success{border-color:#059669}.afk-backup-notice-dialog header{display:flex;align-items:center;justify-content:space-between;gap:10px}.afk-backup-notice-dialog header strong{color:#fecdd3;font-size:15px}.afk-backup-notice-dialog.success header strong{color:#a7f3d0}.afk-backup-notice-dialog header button{width:32px;height:32px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#fff;font-size:20px;cursor:pointer}.afk-backup-notice-dialog p{margin:13px 0;color:#cbd5e1;font-size:12px;line-height:1.75;overflow-wrap:anywhere}.afk-backup-notice-dialog .confirm{width:100%;min-height:40px;border:1px solid #d97706;border-radius:8px;background:#b45309;color:#fff;font-weight:900;cursor:pointer}@media(max-width:760px){body.m-mobile .afk-backup-notice-dialog{padding:13px}body.m-mobile .afk-backup-notice-dialog header strong{font-size:16px}body.m-mobile .afk-backup-notice-dialog p{font-size:14px}body.m-mobile .afk-backup-notice-dialog .confirm{min-height:46px;font-size:15px}}';
+            document.head.appendChild(style);
+        }
+        function install() {
+            installStyle();
+            idbGetHandle().catch(function () {});
+            document.addEventListener('afk:mode-tab', onModeTab);
+            ensurePanel(document.querySelector('.afk-mode-dialog'));
+            AFKRuntime.every('backup:schedule', schedulerTick, 30000);
+            if (!config.nextDue) { config.nextDue = calculateNext(Date.now()); writeConfig(); }
+        }
+        AFKRuntime.when('backup:ready', function () {
+            return document.body && typeof _saveWrap === 'function' && typeof _saveUnwrap === 'function' &&
+                typeof _lzGet === 'function' && typeof _lzSet === 'function';
+        }, install);
     }
 
     // ============================================================
@@ -6727,8 +7838,8 @@
         '.afk-inv-batchbar{position:sticky;top:calc(var(--afk-quick-header-height,42px) + var(--afk-filter-height,42px));z-index:11;display:flex;align-items:center;gap:5px;padding:6px;border:1px solid #0e7490;border-radius:8px;background:rgba(8,47,73,.97);box-shadow:0 6px 16px rgba(0,0,0,.3)}.afk-inv-batchbar[hidden]{display:none!important}.afk-inv-batchbar:before{content:"已選 " attr(data-count) " 件";margin-right:auto;color:#a5f3fc;font:900 10px system-ui}.afk-inv-batchbar button{padding:5px 8px;border:1px solid #0891b2;border-radius:6px;background:#164e63;color:#cffafe;font:800 10px system-ui;cursor:pointer}.afk-inv-batchbar button.clear{border-color:#64748b;background:#334155;color:#e2e8f0}' +
         '#afk-castle-toggle,#afk-pledge-toggle{flex:none;padding:4px 8px;border:1px solid #b89243;border-radius:7px;background:#3a2f12;color:#fde68a;font:800 10px/1.2 system-ui;cursor:pointer;white-space:nowrap}#afk-pledge-toggle{border-color:#0f766e;background:#134e4a;color:#ccfbf1}.afk-system-choice{box-sizing:border-box;max-width:640px;margin:10px auto;padding:16px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;border:1px solid #475569;border-radius:12px;background:rgba(15,23,42,.9);color:#e2e8f0}.afk-system-choice h3,.afk-system-choice p{grid-column:1/-1;margin:0;color:#fde68a}.afk-system-choice button{padding:14px;border:1px solid #0f766e;border-radius:9px;background:#115e59;color:#ccfbf1;font-weight:900;cursor:pointer}.afk-pandora-highlight{animation:afkPandoraPulse .65s ease-in-out 3}@keyframes afkPandoraPulse{50%{border-color:#facc15;box-shadow:0 0 18px rgba(250,204,21,.8)}}' +
         '#classic-badge,#traditional-badge{display:none!important}#afk-mode-chip{display:inline-flex;align-items:center;gap:4px;margin-left:5px;padding:3px 8px;border:1px solid #64748b;border-radius:999px;background:#1e293b;color:#e2e8f0;font:900 10px/1.2 system-ui;cursor:pointer;white-space:nowrap}#afk-mode-chip[data-mode="classic"]{border-color:#d97706;background:#3a2f12;color:#fbbf24}#afk-mode-chip[data-mode="traditional"]{border-color:#7c3aed;background:#2e1065;color:#ddd6fe}#afk-mode-chip[data-mode="classic_traditional"]{border-color:#0d9488;background:#134e4a;color:#99f6e4}' +
-        '#afk-mode-overlay{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:12px;background:rgba(2,6,23,.72);font-family:system-ui,sans-serif}.afk-mode-dialog{box-sizing:border-box;width:min(760px,100%);max-height:calc(100vh - 24px);overflow:auto;padding:13px;border:1px solid #475569;border-radius:13px;background:#0f172a;color:#e2e8f0;box-shadow:0 22px 70px rgba(0,0,0,.8)}.afk-mode-dialog header{display:flex;align-items:center;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #334155}.afk-mode-dialog header>div{display:flex;flex-direction:column}.afk-mode-dialog header strong{color:#67e8f9}.afk-mode-dialog header small{color:#94a3b8;font-size:9px}.afk-mode-dialog header button{width:28px;height:28px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#e2e8f0;font-size:18px;cursor:pointer}.afk-mode-dialog h3{margin:12px 0 6px;color:#cbd5e1;font-size:12px}.afk-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.afk-mode-grid button,.afk-mode-slot,.afk-mode-tools button{padding:9px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-weight:800;cursor:pointer}.afk-mode-grid button.active{border-color:#22d3ee;background:#164e63;color:#cffafe}.afk-mode-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.afk-mode-tools button{display:flex;align-items:center;justify-content:center;gap:6px}.afk-mode-tools button:hover{border-color:#38bdf8;background:#24354c}.afk-mode-slot-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.afk-mode-slot-head small{color:#94a3b8;font-size:9px}.afk-mode-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.afk-mode-slot{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left}.afk-mode-slot>span{min-width:0;display:flex;flex-direction:column;gap:2px}.afk-mode-slot b,.afk-mode-slot small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.afk-mode-slot small{color:#94a3b8;font-size:9px}.afk-mode-slot em{flex:none;color:#c4b5fd;font:normal 9px system-ui}.afk-mode-slot:hover:not(:disabled){border-color:#22d3ee}.afk-mode-slot.current{border-color:#10b981;background:#064e3b;color:#d1fae5}.afk-mode-slot:disabled{cursor:default;opacity:.8}.afk-mode-slot.empty{border-style:dashed;background:#111827}.afk-mode-slot.empty em{color:#6ee7b7}@media(max-width:620px){.afk-mode-dialog{padding:10px}.afk-mode-tools{grid-template-columns:1fr}.afk-mode-slots{grid-template-columns:1fr}.afk-mode-grid{grid-template-columns:1fr 1fr}}' +
-        '.afk-mode-slot{box-sizing:border-box;display:flex!important;flex-direction:column;align-items:stretch!important;padding:8px!important;cursor:default!important}.afk-mode-slot.loadable{cursor:pointer!important}.afk-mode-slot.loadable:hover,.afk-mode-slot.loadable:focus-visible{border-color:#22d3ee!important;box-shadow:0 0 0 2px rgba(34,211,238,.2);outline:none}.afk-mode-slot-info{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px}.afk-mode-slot-info>span{min-width:0;display:flex;flex-direction:column;gap:2px}.afk-mode-slot-actions{display:flex;flex-wrap:wrap;gap:4px;padding-top:7px;border-top:1px solid rgba(71,85,105,.55)}.afk-mode-slot-actions button{flex:1 1 68px;min-height:28px;padding:5px 6px;border:1px solid #475569;border-radius:6px;background:#172033;color:#cbd5e1;font:800 8px system-ui;cursor:pointer}.afk-mode-slot-actions button:hover{border-color:#38bdf8;background:#24354c}.afk-mode-slot-actions .primary{border-color:#0e7490;background:#164e63;color:#cffafe}.afk-mode-slot-actions .class{border-color:#7c3aed;background:#4c1d95;color:#ede9fe}.afk-mode-slot-actions .danger{border-color:#9f1239;background:#4c0519;color:#fecdd3}.afk-mode-slot-actions .delete{border-color:#dc2626;background:#7f1d1d;color:#fee2e2}.afk-mode-slot-actions .delete:hover{border-color:#f87171;background:#991b1b}.afk-mode-slot-actions .backup{flex-basis:100%;border-color:#b45309;background:#451a03;color:#fde68a}' +
+        'body.afk-mode-open{overflow:hidden!important}body.afk-mode-open #game-screen{visibility:hidden!important;content-visibility:hidden!important}#afk-mode-overlay{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;padding:12px;background:rgba(2,6,23,.96);font-family:system-ui,sans-serif}.afk-mode-dialog{box-sizing:border-box;width:min(760px,100%);max-height:calc(100vh - 24px);overflow:auto;padding:13px;border:1px solid #475569;border-radius:13px;background:#0f172a;color:#e2e8f0;box-shadow:0 22px 70px rgba(0,0,0,.8);contain:layout paint}.afk-mode-dialog header{display:flex;align-items:center;justify-content:space-between;padding-bottom:9px;border-bottom:1px solid #334155}.afk-mode-dialog header>div{display:flex;flex-direction:column}.afk-mode-dialog header strong{color:#67e8f9}.afk-mode-dialog header small{color:#94a3b8;font-size:9px}.afk-mode-dialog header button{width:28px;height:28px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#e2e8f0;font-size:18px;cursor:pointer}.afk-mode-tabs{position:sticky;top:-13px;z-index:5;display:grid;grid-template-columns:1fr 1fr;gap:5px;margin:0 -2px 7px;padding:9px 2px 6px;background:linear-gradient(180deg,#0f172a 78%,rgba(15,23,42,0))}.afk-mode-tabs button{min-height:36px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#94a3b8;font:900 10px system-ui;cursor:pointer}.afk-mode-tabs button.active{border-color:#22d3ee;background:linear-gradient(135deg,#164e63,#155e75);color:#cffafe;box-shadow:0 0 0 1px rgba(34,211,238,.15)}.afk-mode-tab-pane[hidden]{display:none!important}.afk-mode-tab-loading{padding:28px;border:1px dashed #475569;border-radius:9px;color:#94a3b8;text-align:center;font-size:10px}.afk-mode-slots>.afk-mode-tab-loading{grid-column:1/-1}.afk-mode-dialog h3{margin:12px 0 6px;color:#cbd5e1;font-size:12px}.afk-mode-tools button,.afk-mode-slot{padding:9px;border:1px solid #475569;border-radius:8px;background:#1e293b;color:#e2e8f0;font-weight:800;cursor:pointer}.afk-mode-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:9px}.afk-mode-tools button{display:flex;align-items:center;justify-content:center;gap:6px}.afk-mode-tools button:hover{border-color:#38bdf8;background:#24354c}.afk-mode-slot-head{display:flex;align-items:center;justify-content:space-between;gap:8px}.afk-mode-slot-head small{color:#94a3b8;font-size:9px}.afk-mode-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}.afk-mode-slot{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left}.afk-mode-slot>span{min-width:0;display:flex;flex-direction:column;gap:2px}.afk-mode-slot b,.afk-mode-slot small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.afk-mode-slot small{color:#94a3b8;font-size:9px}.afk-mode-slot em{flex:none;color:#c4b5fd;font:normal 9px system-ui}.afk-mode-slot:hover:not(:disabled){border-color:#22d3ee}.afk-mode-slot.current{border-color:#10b981;background:#064e3b;color:#d1fae5}.afk-mode-slot:disabled{cursor:default;opacity:.8}.afk-mode-slot.empty{border-style:dashed;background:#111827}.afk-mode-slot.empty em{color:#6ee7b7}@media(max-width:620px){.afk-mode-dialog{padding:10px}.afk-mode-tabs{top:-10px}.afk-mode-tabs button{min-height:42px;font-size:12px}.afk-mode-tools{grid-template-columns:1fr}.afk-mode-slots{grid-template-columns:1fr}}' +
+        '.afk-mode-slot{box-sizing:border-box;display:flex!important;flex-direction:column;align-items:stretch!important;padding:8px!important;cursor:default!important}.afk-mode-slot.loadable{cursor:pointer!important}.afk-mode-slot.loadable:hover,.afk-mode-slot.loadable:focus-visible{border-color:#22d3ee!important;box-shadow:0 0 0 2px rgba(34,211,238,.2);outline:none}.afk-mode-slot-info{min-width:0;display:flex;align-items:center;justify-content:space-between;gap:8px}.afk-mode-slot-info>span{min-width:0;display:flex;flex-direction:column;gap:2px}.afk-mode-slot-mode{flex:none;display:flex;align-items:center;gap:5px;color:#94a3b8;font:700 8px system-ui;cursor:default}.afk-mode-slot-mode select{box-sizing:border-box;max-width:142px;min-height:29px;padding:4px 22px 4px 7px;border:1px solid #64748b;border-radius:6px;background:#0f172a;color:#e2e8f0;font:800 9px system-ui;cursor:pointer}.afk-mode-slot.current .afk-mode-slot-mode select{border-color:#34d399;background:#052e2b;color:#d1fae5}.afk-mode-slot-actions{display:flex;flex-wrap:wrap;gap:4px;padding-top:7px;border-top:1px solid rgba(71,85,105,.55)}.afk-mode-slot-actions button{flex:1 1 68px;min-height:28px;padding:5px 6px;border:1px solid #475569;border-radius:6px;background:#172033;color:#cbd5e1;font:800 8px system-ui;cursor:pointer}.afk-mode-slot-actions button:hover{border-color:#38bdf8;background:#24354c}.afk-mode-slot-actions .primary{border-color:#0e7490;background:#164e63;color:#cffafe}.afk-mode-slot-actions .class{border-color:#7c3aed;background:#4c1d95;color:#ede9fe}.afk-mode-slot-actions .danger{border-color:#9f1239;background:#4c0519;color:#fecdd3}.afk-mode-slot-actions .delete{border-color:#dc2626;background:#7f1d1d;color:#fee2e2}.afk-mode-slot-actions .delete:hover{border-color:#f87171;background:#991b1b}.afk-mode-slot-actions .backup{flex-basis:100%;border-color:#b45309;background:#451a03;color:#fde68a}.afk-mode-slot-skeleton{min-height:88px;pointer-events:none;overflow:hidden}.afk-mode-slot-skeleton span,.afk-mode-slot-skeleton i{display:block;border-radius:5px;background:linear-gradient(90deg,#1e293b,#334155,#1e293b);background-size:200% 100%;animation:afkModeSkeleton 1.1s linear infinite}.afk-mode-slot-skeleton span{width:62%;height:13px}.afk-mode-slot-skeleton i{width:100%;height:32px;margin-top:12px}@keyframes afkModeSkeleton{to{background-position:-200% 0}}@media(max-width:620px){.afk-mode-slot-mode span{display:none}.afk-mode-slot-mode select{max-width:156px;min-height:36px;font-size:11px}}' +
         '#afk-class-change-overlay{position:fixed;inset:0;display:grid;place-items:center;padding:12px;background:rgba(2,6,23,.72)}.afk-class-change-dialog{box-sizing:border-box;width:min(580px,100%);max-height:calc(100vh - 24px);overflow:auto;padding:12px;border:1px solid #7c3aed;border-radius:13px;background:#0f172a;color:#e2e8f0;box-shadow:0 22px 70px rgba(0,0,0,.8)}.afk-class-change-dialog header{display:flex;align-items:center;justify-content:space-between;padding-bottom:9px}.afk-class-change-dialog header>div{display:flex;flex-direction:column}.afk-class-change-dialog header strong{color:#ddd6fe}.afk-class-change-dialog header small{color:#94a3b8;font-size:9px}.afk-class-change-dialog header button{width:28px;height:28px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#fff;font-size:18px}.afk-class-change-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}.afk-class-change-grid button{min-height:38px;padding:7px;border:1px solid #475569;border-radius:7px;background:#1e293b;color:#e2e8f0;font-weight:800;cursor:pointer}.afk-class-change-grid button:hover:not(:disabled){border-color:#a78bfa;background:#312e81}.afk-class-change-grid button:disabled{opacity:.4}@media(max-width:620px){.afk-class-change-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.afk-mode-slot-actions button{min-height:34px;font-size:9px}}' +
         '.afk-material-route.shop:hover{border-color:#22c55e;background:#052e16}.afk-material-route.market:hover{border-color:#c084fc;background:#2e1065}' +
         '#afk-rv:hover{filter:brightness(1.2)}';
